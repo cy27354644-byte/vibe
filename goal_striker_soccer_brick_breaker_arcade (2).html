@@ -1,0 +1,1067 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>골 스트라이커 - 축구 벽돌깨기 아케이드</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts: Orbitron & Noto Sans KR -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&family=Orbitron:wght@600;800;900&display=swap" rel="stylesheet">
+    <style>
+        * {
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background-color: #090a0f;
+            color: #ffffff;
+            overflow: hidden;
+        }
+        .font-arcade {
+            font-family: 'Orbitron', sans-serif;
+        }
+        .neon-text-cyan {
+            text-shadow: 0 0 8px rgba(6, 182, 212, 0.8), 0 0 20px rgba(6, 182, 212, 0.5);
+        }
+        .neon-text-pink {
+            text-shadow: 0 0 8px rgba(236, 72, 153, 0.8), 0 0 20px rgba(236, 72, 153, 0.5);
+        }
+        canvas {
+            box-shadow: 0 0 30px rgba(16, 185, 129, 0.3);
+            background: #15803d;
+        }
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col items-center justify-center p-2 sm:p-4 bg-slate-950 select-none overflow-hidden">
+
+    <!-- Header Stats Bar -->
+    <div class="w-full max-w-4xl flex items-center justify-between bg-slate-900/90 border border-slate-800 rounded-xl px-4 py-2 mb-2 backdrop-blur-md z-10 shadow-lg">
+        <div class="flex items-center space-x-4 sm:space-x-6">
+            <div>
+                <span class="text-xs text-slate-400 block font-semibold">SCORE</span>
+                <span id="scoreText" class="text-xl sm:text-2xl font-arcade font-extrabold text-cyan-400">00000</span>
+            </div>
+            <div>
+                <span class="text-xs text-slate-400 block font-semibold">HIGH SCORE</span>
+                <span id="highScoreText" class="text-xl sm:text-2xl font-arcade font-bold text-amber-400">00000</span>
+            </div>
+            <!-- Header External Weather Info -->
+            <div class="hidden md:flex items-center space-x-1.5 bg-slate-800/80 border border-slate-700/60 px-2.5 py-1 rounded-lg text-xs font-semibold text-amber-300">
+                <i class="fa-solid fa-sun text-amber-400"></i>
+                <span>서울 11°C 맑음</span>
+            </div>
+        </div>
+
+        <div class="flex items-center space-x-4 sm:space-x-6">
+            <div>
+                <span class="text-xs text-slate-400 block font-semibold">STAGE</span>
+                <span id="levelText" class="text-xl sm:text-2xl font-arcade font-extrabold text-pink-500 text-center block">1</span>
+            </div>
+            <div>
+                <span class="text-xs text-slate-400 block font-semibold">LIVES</span>
+                <div id="livesContainer" class="flex space-x-1 text-red-500 text-lg sm:text-xl">
+                    <i class="fa-solid fa-heart"></i>
+                    <i class="fa-solid fa-heart"></i>
+                    <i class="fa-solid fa-heart"></i>
+                </div>
+            </div>
+            <!-- Sound Toggle Button -->
+            <button id="soundBtn" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors">
+                <i class="fa-solid fa-volume-high text-lg" id="soundIcon"></i>
+            </button>
+            <!-- Pause Button -->
+            <button id="pauseBtn" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors">
+                <i class="fa-solid fa-pause text-lg"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Wind Hazard Warning Banner -->
+    <div id="windBanner" class="hidden absolute top-16 left-1/2 transform -translate-x-1/2 bg-amber-400 text-slate-950 px-6 py-2 rounded-full font-black text-sm sm:text-base shadow-2xl border-2 border-amber-200 z-30 flex items-center space-x-3 animate-pulse">
+        <i class="fa-solid fa-wind text-xl animate-spin"></i>
+        <span id="windText">⚠️ 강력한 태풍 발생! 궤적이 크게 휘어집니다!</span>
+    </div>
+
+    <!-- Main Canvas Wrapper -->
+    <div class="relative w-full max-w-4xl flex-1 max-h-[80vh] flex items-center justify-center">
+        <canvas id="gameCanvas" class="w-full h-full rounded-2xl border border-cyan-500/30 object-contain"></canvas>
+
+        <!-- Overlay Screen: Start & Weather Select Screen -->
+        <div id="startOverlay" class="absolute inset-0 bg-slate-950/90 backdrop-blur-md rounded-2xl flex flex-col items-center justify-center p-4 sm:p-6 text-center z-20 overflow-y-auto">
+            <div class="flex items-center space-x-3 mb-1">
+                <h1 class="text-3xl sm:text-5xl font-black font-arcade neon-text-cyan tracking-wider"><i class="fa-solid fa-futbol text-emerald-400 mr-2"></i>GOAL STRIKER</h1>
+            </div>
+            <p class="text-slate-400 text-xs sm:text-sm mb-4">경기 시작 전, 서울 경기장 기온을 설정하세요!</p>
+
+            <!-- Temperature Selection Panel -->
+            <div class="w-full max-w-md bg-slate-900/90 border border-slate-700/70 p-4 rounded-xl mb-5 shadow-inner">
+                <div class="flex items-center justify-between mb-3">
+                    <span class="text-slate-300 text-xs sm:text-sm font-bold flex items-center">
+                        <i class="fa-solid fa-temperature-half text-amber-400 mr-2 text-base"></i>경기장 설정 기온
+                    </span>
+                    <span id="tempValueDisplay" class="text-lg font-arcade font-extrabold text-amber-300">11°C</span>
+                </div>
+
+                <!-- Temperature Range Slider -->
+                <input type="range" id="tempSlider" min="-10" max="40" value="11" class="w-full accent-emerald-500 bg-slate-800 h-2 rounded-lg cursor-pointer mb-4">
+
+                <!-- Speed Effect Status Banner -->
+                <div id="speedStatusBadge" class="p-2.5 rounded-lg border text-xs font-semibold mb-3 flex items-center justify-between bg-emerald-500/10 border-emerald-500/40 text-emerald-300">
+                    <span id="speedStatusText">⚽ 공 속도: 정상 (1.0x)</span>
+                    <span id="tempRangeGuideText" class="text-[11px] opacity-80">10°C~25°C 적정 범위</span>
+                </div>
+
+                <!-- Preset Temperature Buttons -->
+                <div class="grid grid-cols-4 gap-2 text-xs font-bold">
+                    <button type="button" data-temp="-5" class="temp-preset-btn p-2 rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-700 text-cyan-300 transition-all">
+                        -5°C<br><span class="text-[9px] font-normal text-slate-400">한파 (느림)</span>
+                    </button>
+                    <button type="button" data-temp="11" class="temp-preset-btn p-2 rounded-lg border-2 border-amber-400 bg-amber-500/20 text-amber-300 transition-all">
+                        11°C<br><span class="text-[9px] font-normal text-amber-200">서울현재</span>
+                    </button>
+                    <button type="button" data-temp="20" class="temp-preset-btn p-2 rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-700 text-emerald-300 transition-all">
+                        20°C<br><span class="text-[9px] font-normal text-slate-400">쾌적 (정상)</span>
+                    </button>
+                    <button type="button" data-temp="30" class="temp-preset-btn p-2 rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-700 text-pink-400 transition-all">
+                        30°C<br><span class="text-[9px] font-normal text-slate-400">폭염 (빠름)</span>
+                    </button>
+                </div>
+            </div>
+            
+            <button id="startBtn" class="px-8 py-3.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-bold text-lg sm:text-xl rounded-xl shadow-lg shadow-emerald-500/50 hover:scale-105 active:scale-95 transition-all mb-4 flex items-center space-x-3">
+                <i class="fa-solid fa-play"></i>
+                <span>경기 시작</span>
+            </button>
+
+            <!-- Guide Box -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-slate-300 bg-slate-900/80 p-3 rounded-xl border border-slate-800 max-w-lg text-left">
+                <div class="flex items-center space-x-3">
+                    <i class="fa-solid fa-computer-mouse text-cyan-400 text-lg w-6 text-center"></i>
+                    <span><strong>마우스 / 터치:</strong> 패들 이동</span>
+                </div>
+                <div class="flex items-center space-x-3">
+                    <i class="fa-solid fa-keyboard text-cyan-400 text-lg w-6 text-center"></i>
+                    <span><strong>방향키 (A/D):</strong> 패들 이동</span>
+                </div>
+                <div class="flex items-center space-x-3">
+                    <i class="fa-solid fa-bullseye text-emerald-400 text-lg w-6 text-center"></i>
+                    <span><strong>최종 목표:</strong> 수비&골키퍼 뚫고 골인</span>
+                </div>
+                <div class="flex items-center space-x-3">
+                    <i class="fa-solid fa-cloud text-amber-400 text-lg w-6 text-center"></i>
+                    <span><strong>선택된 날씨:</strong> 물리 법칙 변화</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Overlay Screen: Pause -->
+        <div id="pauseOverlay" class="hidden absolute inset-0 bg-slate-950/80 backdrop-blur-md rounded-2xl flex flex-col items-center justify-center p-6 text-center z-20">
+            <h2 class="text-3xl sm:text-5xl font-black font-arcade text-amber-400 mb-6">PAUSED</h2>
+            <button id="resumeBtn" class="px-6 py-3 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-extrabold text-lg rounded-xl shadow-lg shadow-cyan-500/30 transition-all">
+                계속 하기
+            </button>
+        </div>
+
+        <!-- Overlay Screen: Goal Clear -->
+        <div id="clearOverlay" class="hidden absolute inset-0 bg-slate-950/85 backdrop-blur-md rounded-2xl flex flex-col items-center justify-center p-6 text-center z-20">
+            <h2 class="text-4xl sm:text-6xl font-black font-arcade text-emerald-400 neon-text-cyan mb-2">GOAL~~~~! ⚽</h2>
+            <p id="clearSubtext" class="text-slate-300 mb-6 text-lg">완벽한 수비 돌파 후 득점에 성공했습니다!</p>
+            <button id="nextLevelBtn" class="px-8 py-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-lg rounded-xl shadow-lg shadow-emerald-500/40 hover:scale-105 active:scale-95 transition-all">
+                다음 경기 입증 <i class="fa-solid fa-arrow-right ml-2"></i>
+            </button>
+        </div>
+
+        <!-- Overlay Screen: Game Over -->
+        <div id="gameOverOverlay" class="hidden absolute inset-0 bg-slate-950/90 backdrop-blur-md rounded-2xl flex flex-col items-center justify-center p-6 text-center z-20">
+            <h2 class="text-4xl sm:text-6xl font-black font-arcade text-red-500 neon-text-pink mb-2">GAME OVER</h2>
+            <p class="text-slate-400 mb-2">최종 점수</p>
+            <p id="finalScoreText" class="text-3xl font-arcade font-bold text-cyan-400 mb-6">0</p>
+            <button id="restartBtn" class="px-8 py-4 bg-gradient-to-r from-red-500 to-pink-600 hover:from-red-400 hover:to-pink-500 text-white font-bold text-xl rounded-xl shadow-lg shadow-red-500/40 hover:scale-105 active:scale-95 transition-all flex items-center space-x-2">
+                <i class="fa-solid fa-rotate-right"></i>
+                <span>다시 도전</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Mobile Touch Launch Button -->
+    <div class="mt-2 sm:hidden w-full max-w-4xl flex justify-center">
+        <button id="mobileLaunchBtn" class="w-full py-3 bg-slate-800/80 active:bg-cyan-600 border border-slate-700 text-cyan-300 font-bold rounded-xl text-center shadow">
+            공 발사 / 슈팅
+        </button>
+    </div>
+
+    <script>
+        // SoundFX class
+        class SoundFX {
+            constructor() {
+                this.ctx = null;
+                this.enabled = true;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    if (AudioContext) {
+                        this.ctx = new AudioContext();
+                    }
+                }
+                if (this.ctx && this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+
+            playHit() {
+                if (!this.enabled || !this.ctx) return;
+                try {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(300, this.ctx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(150, this.ctx.currentTime + 0.08);
+                    gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.08);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 0.08);
+                } catch(e) {}
+            }
+
+            playPaddle() {
+                if (!this.enabled || !this.ctx) return;
+                try {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(450, this.ctx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(200, this.ctx.currentTime + 0.1);
+                    gain.gain.setValueAtTime(0.4, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.1);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 0.1);
+                } catch(e) {}
+            }
+
+            playGoal() {
+                if (!this.enabled || !this.ctx) return;
+                try {
+                    const notes = [523.25, 659.25, 783.99, 1046.50];
+                    notes.forEach((freq, idx) => {
+                        const osc = this.ctx.createOscillator();
+                        const gain = this.ctx.createGain();
+                        osc.type = 'square';
+                        osc.frequency.setValueAtTime(freq, this.ctx.currentTime + idx * 0.1);
+                        gain.gain.setValueAtTime(0.2, this.ctx.currentTime + idx * 0.1);
+                        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + idx * 0.1 + 0.2);
+                        osc.connect(gain);
+                        gain.connect(this.ctx.destination);
+                        osc.start(this.ctx.currentTime + idx * 0.1);
+                        osc.stop(this.ctx.currentTime + idx * 0.1 + 0.2);
+                    });
+                } catch(e) {}
+            }
+
+            playPowerup() {
+                if (!this.enabled || !this.ctx) return;
+                try {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(300, this.ctx.currentTime);
+                    osc.frequency.linearRampToValueAtTime(800, this.ctx.currentTime + 0.15);
+                    gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.15);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 0.15);
+                } catch(e) {}
+            }
+
+            playGameOver() {
+                if (!this.enabled || !this.ctx) return;
+                try {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(300, this.ctx.currentTime);
+                    osc.frequency.linearRampToValueAtTime(80, this.ctx.currentTime + 0.5);
+                    gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.5);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 0.5);
+                } catch(e) {}
+            }
+        }
+
+        const sounds = new SoundFX();
+
+        class BrickBreaker {
+            constructor() {
+                this.selectedWeather = 'clear';
+                this.temperature = 11; // 기본 11도
+                this.speedMultiplier = 1.0;
+
+                this.canvas = document.getElementById('gameCanvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.width = 800;
+                this.height = 600;
+                this.canvas.width = this.width;
+                this.canvas.height = this.height;
+
+                this.score = 0;
+                this.highScore = parseInt(localStorage.getItem('goalStriker_highScore') || '0', 10);
+                this.level = 1;
+                this.lives = 3;
+                this.gameRunning = false;
+                this.gamePaused = false;
+
+                this.keys = { left: false, right: false };
+                this.pointerX = this.width / 2;
+                this.balls = [];
+                this.bricks = [];
+                this.powerups = [];
+                this.particles = [];
+                this.referees = [];
+                this.windForce = 0;
+                this.windTimer = 0;
+
+                this.paddle = {
+                    x: this.width / 2 - 50,
+                    y: this.height - 30,
+                    width: 100,
+                    height: 14,
+                    speed: 8
+                };
+
+                this.goalPost = {
+                    x: this.width / 2 - 80,
+                    y: 10,
+                    width: 160,
+                    height: 35
+                };
+
+                this.goalkeeper = {
+                    x: this.width / 2 - 25,
+                    y: 50,
+                    width: 50,
+                    height: 16,
+                    vx: 2
+                };
+
+                this.shieldActive = false;
+                this.stickyPaddle = false;
+                this.fireballTimer = 0;
+                this.shakeTime = 0;
+
+                this.ui = {
+                    score: document.getElementById('scoreText'),
+                    highScore: document.getElementById('highScoreText'),
+                    level: document.getElementById('levelText'),
+                    lives: document.getElementById('livesContainer'),
+                    finalScore: document.getElementById('finalScoreText'),
+                    startOverlay: document.getElementById('startOverlay'),
+                    pauseOverlay: document.getElementById('pauseOverlay'),
+                    clearOverlay: document.getElementById('clearOverlay'),
+                    gameOverOverlay: document.getElementById('gameOverOverlay'),
+                    soundIcon: document.getElementById('soundIcon'),
+                    windBanner: document.getElementById('windBanner'),
+                    windText: document.getElementById('windText')
+                };
+
+                this.initEvents();
+                this.initLevel();
+                this.updateUI();
+            }
+
+            initEvents() {
+                const tempSlider = document.getElementById('tempSlider');
+                const tempDisplay = document.getElementById('tempValueDisplay');
+                const speedStatusBadge = document.getElementById('speedStatusBadge');
+                const speedStatusText = document.getElementById('speedStatusText');
+                const tempRangeGuideText = document.getElementById('tempRangeGuideText');
+                const tempPresetBtns = document.querySelectorAll('.temp-preset-btn');
+
+                const applyTemperature = (tempVal) => {
+                    this.temperature = parseInt(tempVal, 10);
+                    if (tempSlider) tempSlider.value = this.temperature;
+                    if (tempDisplay) tempDisplay.textContent = `${this.temperature}°C`;
+
+                    if (this.temperature < 10) {
+                        this.speedMultiplier = 0.75;
+                        if (speedStatusBadge) speedStatusBadge.className = 'p-2.5 rounded-lg border text-xs font-semibold mb-3 flex items-center justify-between bg-cyan-500/10 border-cyan-500/40 text-cyan-300';
+                        if (speedStatusText) speedStatusText.textContent = '❄️ 공 속도: 감속 (0.75x)';
+                        if (tempRangeGuideText) tempRangeGuideText.textContent = '10°C 미만 (저온)';
+                    } else if (this.temperature > 25) {
+                        this.speedMultiplier = 1.35;
+                        if (speedStatusBadge) speedStatusBadge.className = 'p-2.5 rounded-lg border text-xs font-semibold mb-3 flex items-center justify-between bg-pink-500/10 border-pink-500/40 text-pink-400';
+                        if (speedStatusText) speedStatusText.textContent = '🔥 공 속도: 가속 (1.35x)';
+                        if (tempRangeGuideText) tempRangeGuideText.textContent = '25°C 초과 (고온)';
+                    } else {
+                        this.speedMultiplier = 1.0;
+                        if (speedStatusBadge) speedStatusBadge.className = 'p-2.5 rounded-lg border text-xs font-semibold mb-3 flex items-center justify-between bg-emerald-500/10 border-emerald-500/40 text-emerald-300';
+                        if (speedStatusText) speedStatusText.textContent = '⚽ 공 속도: 정상 (1.0x)';
+                        if (tempRangeGuideText) tempRangeGuideText.textContent = '10°C~25°C 적정 범위';
+                    }
+
+                    tempPresetBtns.forEach(btn => {
+                        const bTemp = parseInt(btn.getAttribute('data-temp'), 10);
+                        if (bTemp === this.temperature) {
+                            btn.className = 'temp-preset-btn p-2 rounded-lg border-2 border-amber-400 bg-amber-500/20 text-amber-300 transition-all shadow';
+                        } else {
+                            btn.className = 'temp-preset-btn p-2 rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-300 transition-all';
+                        }
+                    });
+                };
+
+                if (tempSlider) {
+                    tempSlider.addEventListener('input', (e) => applyTemperature(e.target.value));
+                }
+
+                tempPresetBtns.forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        const val = e.currentTarget.getAttribute('data-temp');
+                        applyTemperature(val);
+                    });
+                });
+
+                if (this.canvas) {
+                    this.canvas.addEventListener('mousemove', (e) => {
+                        const rect = this.canvas.getBoundingClientRect();
+                        const scaleX = this.width / rect.width;
+                        this.pointerX = (e.clientX - rect.left) * scaleX;
+                    });
+
+                    const handleTouch = (e) => {
+                        if (!e.touches.length) return;
+                        const rect = this.canvas.getBoundingClientRect();
+                        const scaleX = this.width / rect.width;
+                        this.pointerX = (e.touches[0].clientX - rect.left) * scaleX;
+                    };
+                    this.canvas.addEventListener('touchstart', (e) => { handleTouch(e); this.launchOrFire(); }, { passive: true });
+                    this.canvas.addEventListener('touchmove', handleTouch, { passive: true });
+
+                    this.canvas.addEventListener('click', () => {
+                        sounds.init();
+                        this.launchOrFire();
+                    });
+                }
+
+                const mobileLaunchBtn = document.getElementById('mobileLaunchBtn');
+                if (mobileLaunchBtn) {
+                    mobileLaunchBtn.addEventListener('click', () => {
+                        sounds.init();
+                        this.launchOrFire();
+                    });
+                }
+
+                window.addEventListener('keydown', (e) => {
+                    sounds.init();
+                    if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') this.keys.left = true;
+                    if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') this.keys.right = true;
+                    if (e.code === 'Space') {
+                        e.preventDefault();
+                        this.launchOrFire();
+                    }
+                    if (e.key === 'p' || e.key === 'P') this.togglePause();
+                });
+
+                window.addEventListener('keyup', (e) => {
+                    if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') this.keys.left = false;
+                    if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') this.keys.right = false;
+                });
+
+                const startBtn = document.getElementById('startBtn');
+                if (startBtn) {
+                    startBtn.addEventListener('click', () => {
+                        sounds.init();
+                        this.startGame();
+                    });
+                }
+
+                const pauseBtn = document.getElementById('pauseBtn');
+                if (pauseBtn) pauseBtn.addEventListener('click', () => this.togglePause());
+
+                const resumeBtn = document.getElementById('resumeBtn');
+                if (resumeBtn) resumeBtn.addEventListener('click', () => this.togglePause());
+
+                const nextLevelBtn = document.getElementById('nextLevelBtn');
+                if (nextLevelBtn) nextLevelBtn.addEventListener('click', () => this.nextLevel());
+
+                const restartBtn = document.getElementById('restartBtn');
+                if (restartBtn) restartBtn.addEventListener('click', () => this.restartGame());
+
+                const soundBtn = document.getElementById('soundBtn');
+                if (soundBtn) {
+                    soundBtn.addEventListener('click', () => {
+                        sounds.enabled = !sounds.enabled;
+                        if (this.ui.soundIcon) {
+                            this.ui.soundIcon.className = sounds.enabled ? 'fa-solid fa-volume-high text-lg' : 'fa-solid fa-volume-xmark text-lg text-red-400';
+                        }
+                    });
+                }
+            }
+
+            initLevel() {
+                this.bricks = [];
+                this.powerups = [];
+                this.particles = [];
+                this.referees = [];
+                this.balls = [];
+                this.fireballTimer = 0;
+                this.shieldActive = false;
+
+                this.paddle.width = 100;
+
+                // 수비수 벽돌 레이아웃 생성
+                const rows = 4 + Math.min(this.level, 3);
+                const cols = 8;
+                const brickWidth = 75;
+                const brickHeight = 30;
+                const padding = 12;
+                const offsetTop = 110;
+                const offsetLeft = (this.width - (cols * (brickWidth + padding) - padding)) / 2;
+
+                const jerseys = ['#ef4444', '#3b82f6', '#10b981', '#8b5cf6', '#ec4899'];
+
+                for (let r = 0; r < rows; r++) {
+                    for (let c = 0; c < cols; c++) {
+                        // 중간 빈자리 통로 효과
+                        if (r > 1 && (c === 3 || c === 4) && Math.random() > 0.4) continue;
+
+                        let hp = 1;
+                        let type = 'normal';
+                        const rand = Math.random();
+                        if (rand < 0.15) {
+                            type = 'explosive'; // 자책골/폭발형
+                        } else if (rand < 0.35 && r < 2) {
+                            type = 'solid'; // 다이아몬드/단단한 수비
+                            hp = 2;
+                        }
+
+                        this.bricks.push({
+                            x: offsetLeft + c * (brickWidth + padding),
+                            y: offsetTop + r * (brickHeight + padding),
+                            width: brickWidth,
+                            height: brickHeight,
+                            hp: hp,
+                            maxHp: hp,
+                            type: type,
+                            jersey: jerseys[(r + c) % jerseys.length],
+                            shorts: '#1e293b',
+                            number: (c + r * cols + 1) % 99 + 1
+                        });
+                    }
+                }
+
+                // 심판 장애물 추가 (레벨 2 이상)
+                if (this.level >= 2) {
+                    this.referees.push({
+                        x: 100,
+                        y: 300,
+                        width: 45,
+                        height: 25,
+                        vx: 3,
+                        color: '#facc15'
+                    });
+                }
+
+                // 축구공 생성 (패들에 밀착)
+                this.resetBall();
+            }
+
+            resetBall() {
+                this.balls = [{
+                    x: this.paddle.x + this.paddle.width / 2,
+                    y: this.paddle.y - 10,
+                    radius: 9,
+                    vx: 0,
+                    vy: 0,
+                    attached: true
+                }];
+            }
+
+            startGame() {
+                this.gameRunning = true;
+                this.gamePaused = false;
+                if (this.ui.startOverlay) this.ui.startOverlay.classList.add('hidden');
+                if (this.ui.gameOverOverlay) this.ui.gameOverOverlay.classList.add('hidden');
+                if (this.ui.clearOverlay) this.ui.clearOverlay.classList.add('hidden');
+            }
+
+            togglePause() {
+                if (!this.gameRunning) return;
+                this.gamePaused = !this.gamePaused;
+                if (this.ui.pauseOverlay) {
+                    if (this.gamePaused) this.ui.pauseOverlay.classList.remove('hidden');
+                    else this.ui.pauseOverlay.classList.add('hidden');
+                }
+            }
+
+            nextLevel() {
+                this.level++;
+                this.initLevel();
+                if (this.ui.clearOverlay) this.ui.clearOverlay.classList.add('hidden');
+                this.gameRunning = true;
+                this.updateUI();
+            }
+
+            restartGame() {
+                this.score = 0;
+                this.level = 1;
+                this.lives = 3;
+                this.initLevel();
+                if (this.ui.gameOverOverlay) this.ui.gameOverOverlay.classList.add('hidden');
+                this.gameRunning = true;
+                this.updateUI();
+            }
+
+            launchOrFire() {
+                this.balls.forEach(b => {
+                    if (b.attached) {
+                        b.attached = false;
+                        const angle = (Math.random() * 0.4 - 0.2) - Math.PI / 2;
+                        const baseSpeed = (7 + this.level * 0.5) * this.speedMultiplier;
+                        b.vx = Math.cos(angle) * baseSpeed;
+                        b.vy = Math.sin(angle) * baseSpeed;
+                    }
+                });
+            }
+
+            updateUI() {
+                if (this.ui.score) this.ui.score.textContent = String(this.score).padStart(5, '0');
+                if (this.ui.highScore) this.ui.highScore.textContent = String(this.highScore).padStart(5, '0');
+                if (this.ui.level) this.ui.level.textContent = this.level;
+                if (this.ui.lives) {
+                    let hearts = '';
+                    for (let i = 0; i < this.lives; i++) {
+                        hearts += '<i class="fa-solid fa-heart mr-1"></i>';
+                    }
+                    this.ui.lives.innerHTML = hearts;
+                }
+            }
+
+            update() {
+                if (!this.gameRunning || this.gamePaused) return;
+
+                // 타이머 처리
+                if (this.fireballTimer > 0) this.fireballTimer--;
+                if (this.shakeTime > 0) this.shakeTime--;
+
+                // 바람 시스템 업데이트
+                this.windTimer++;
+                if (this.windTimer % 350 === 0) {
+                    if (Math.random() > 0.3) {
+                        this.windForce = (Math.random() > 0.5 ? 1 : -1) * (0.18 + Math.random() * 0.12);
+                        if (this.ui.windBanner) {
+                            this.ui.windBanner.classList.remove('hidden');
+                            if (this.ui.windText) {
+                                this.ui.windText.textContent = this.windForce > 0
+                                    ? '⚠️ 강풍 주의! 우측으로 강력하게 휘어집니다! 👉👉'
+                                    : '⚠️ 강풍 주의! 좌측으로 강력하게 휘어집니다! 👈👈';
+                            }
+                        }
+                    } else {
+                        this.windForce = 0;
+                        if (this.ui.windBanner) this.ui.windBanner.classList.add('hidden');
+                    }
+                }
+
+                // 패들 이동 처리
+                if (this.keys.left) this.pointerX -= this.paddle.speed;
+                if (this.keys.right) this.pointerX += this.paddle.speed;
+
+                this.paddle.x = this.pointerX - this.paddle.width / 2;
+                if (this.paddle.x < 0) this.paddle.x = 0;
+                if (this.paddle.x + this.paddle.width > this.width) this.paddle.x = this.width - this.paddle.width;
+
+                // 골키퍼 이동
+                this.goalkeeper.x += this.goalkeeper.vx;
+                if (this.goalkeeper.x < this.goalPost.x || this.goalkeeper.x + this.goalkeeper.width > this.goalPost.x + this.goalPost.width) {
+                    this.goalkeeper.vx *= -1;
+                }
+
+                // 심판 장애물 이동
+                this.referees.forEach(ref => {
+                    ref.x += ref.vx;
+                    if (ref.x < 50 || ref.x + ref.width > this.width - 50) ref.vx *= -1;
+                });
+
+                // 공 업데이트 & 충돌 처리
+                for (let i = this.balls.length - 1; i >= 0; i--) {
+                    const b = this.balls[i];
+
+                    if (b.attached) {
+                        b.x = this.paddle.x + this.paddle.width / 2;
+                        b.y = this.paddle.y - b.radius;
+                        continue;
+                    }
+
+                    // 바람 힘 누적
+                    b.vx += this.windForce;
+
+                    b.x += b.vx;
+                    b.y += b.vy;
+
+                    // 좌우 벽 충돌
+                    if (b.x - b.radius < 0) {
+                        b.x = b.radius;
+                        b.vx *= -1;
+                        sounds.playHit();
+                    } else if (b.x + b.radius > this.width) {
+                        b.x = this.width - b.radius;
+                        b.vx *= -1;
+                        sounds.playHit();
+                    }
+
+                    // 상단 천장 충돌
+                    if (b.y - b.radius < 0) {
+                        b.y = b.radius;
+                        b.vy *= -1;
+                        sounds.playHit();
+                    }
+
+                    // ⚽ GOAL 체크 (골대 골인 성공)
+                    if (b.x > this.goalPost.x && b.x < this.goalPost.x + this.goalPost.width && b.y - b.radius <= this.goalPost.y + this.goalPost.height) {
+                        sounds.playGoal();
+                        this.score += 500;
+                        if (this.score > this.highScore) {
+                            this.highScore = this.score;
+                            localStorage.setItem('goalStriker_highScore', this.highScore);
+                        }
+                        this.gameRunning = false;
+                        if (this.ui.clearOverlay) this.ui.clearOverlay.classList.remove('hidden');
+                        this.updateUI();
+                        return;
+                    }
+
+                    // 골키퍼 충돌
+                    const gk = this.goalkeeper;
+                    if (b.x + b.radius > gk.x && b.x - b.radius < gk.x + gk.width && b.y + b.radius > gk.y && b.y - b.radius < gk.y + gk.height) {
+                        b.vy *= -1;
+                        sounds.playHit();
+                    }
+
+                    // 심판 충돌
+                    this.referees.forEach(ref => {
+                        if (b.x + b.radius > ref.x && b.x - b.radius < ref.x + ref.width && b.y + b.radius > ref.y && b.y - b.radius < ref.y + ref.height) {
+                            b.vy *= -1;
+                            sounds.playHit();
+                        }
+                    });
+
+                    // 패들 충돌
+                    if (b.y + b.radius >= this.paddle.y && b.y - b.radius <= this.paddle.y + this.paddle.height &&
+                        b.x >= this.paddle.x && b.x <= this.paddle.x + this.paddle.width && b.vy > 0) {
+                        
+                        sounds.playPaddle();
+                        const hitPos = (b.x - (this.paddle.x + this.paddle.width / 2)) / (this.paddle.width / 2);
+                        const speed = Math.sqrt(b.vx * b.vx + b.vy * b.vy);
+                        const angle = hitPos * (Math.PI / 3); // 최대 60도
+                        b.vx = speed * Math.sin(angle);
+                        b.vy = -speed * Math.cos(angle);
+                    }
+
+                    // 수비수 벽돌 충돌 검사
+                    for (let j = this.bricks.length - 1; j >= 0; j--) {
+                        const br = this.bricks[j];
+                        if (!br) continue;
+
+                        if (b.x + b.radius > br.x && b.x - b.radius < br.x + br.width &&
+                            b.y + b.radius > br.y && b.y - b.radius < br.y + br.height) {
+                            
+                            sounds.playHit();
+                            if (this.fireballTimer <= 0) {
+                                b.vy *= -1;
+                            }
+
+                            br.hp--;
+                            if (br.hp <= 0) {
+                                this.score += 100;
+                                // 아이템 생성 드롭 확률 (20%)
+                                if (Math.random() < 0.2) {
+                                    const pTypes = [
+                                        { label: 'MULT', color: '#38bdf8', type: 'multi' },
+                                        { label: 'WIDE', color: '#4ade80', type: 'wide' },
+                                        { label: 'FIRE', color: '#f97316', type: 'fire' },
+                                        { label: 'LIFE', color: '#f43f5e', type: 'life' }
+                                    ];
+                                    const p = pTypes[Math.floor(Math.random() * pTypes.length)];
+                                    this.powerups.push({
+                                        x: br.x + br.width / 2,
+                                        y: br.y + br.height / 2,
+                                        vy: 2,
+                                        ...p
+                                    });
+                                }
+                                this.bricks.splice(j, 1);
+                            }
+                            break;
+                        }
+                    }
+
+                    // 바닥 추락 처리
+                    if (b.y - b.radius > this.height) {
+                        this.balls.splice(i, 1);
+                    }
+                }
+
+                // 모든 공 사망 시 목숨 차감
+                if (this.balls.length === 0) {
+                    this.lives--;
+                    this.updateUI();
+                    if (this.lives <= 0) {
+                        sounds.playGameOver();
+                        this.gameRunning = false;
+                        if (this.ui.finalScore) this.ui.finalScore.textContent = this.score;
+                        if (this.ui.gameOverOverlay) this.ui.gameOverOverlay.classList.remove('hidden');
+                    } else {
+                        this.resetBall();
+                    }
+                }
+
+                // 파워업 아이템 낙하 & 수집
+                for (let i = this.powerups.length - 1; i >= 0; i--) {
+                    const p = this.powerups[i];
+                    p.y += p.vy;
+
+                    if (p.y + 13 >= this.paddle.y && p.x >= this.paddle.x && p.x <= this.paddle.x + this.paddle.width) {
+                        sounds.playPowerup();
+                        if (p.type === 'wide') this.paddle.width = Math.min(180, this.paddle.width + 30);
+                        else if (p.type === 'fire') this.fireballTimer = 300;
+                        else if (p.type === 'life') { this.lives++; this.updateUI(); }
+                        else if (p.type === 'multi') {
+                            const b = this.balls[0] || { x: this.paddle.x + 50, y: this.paddle.y - 10 };
+                            this.balls.push({ x: b.x, y: b.y, radius: 9, vx: 5, vy: -6, attached: false });
+                            this.balls.push({ x: b.x, y: b.y, radius: 9, vx: -5, vy: -6, attached: false });
+                        }
+                        this.powerups.splice(i, 1);
+                    } else if (p.y > this.height) {
+                        this.powerups.splice(i, 1);
+                    }
+                }
+            }
+
+            draw() {
+                if (!this.ctx) return;
+                this.ctx.clearRect(0, 0, this.width, this.height);
+
+                this.drawSoccerPitch();
+                this.drawInGameWeather();
+                this.drawGoalPost();
+                this.drawObstacles();
+                this.drawDefenders();
+                this.drawPowerups();
+
+                // 패들 그리기
+                this.ctx.fillStyle = '#38bdf8';
+                this.ctx.beginPath();
+                this.ctx.roundRect(this.paddle.x, this.paddle.y, this.paddle.width, this.paddle.height, 6);
+                this.ctx.fill();
+
+                // 공 그리기
+                this.balls.forEach(b => this.drawSoccerBall(b));
+            }
+
+            drawInGameWeather() {
+                this.ctx.save();
+                const boxX = this.width - 160;
+                const boxY = 12;
+                const boxW = 148;
+                const boxH = 26;
+
+                let stateText = "맑음";
+                if (this.temperature < 10) stateText = "저온(감속)";
+                else if (this.temperature > 25) stateText = "폭염(가속)";
+
+                const weatherText = `☀️ 서울 ${this.temperature}°C (${stateText})`;
+
+                this.ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+                this.ctx.strokeStyle = 'rgba(245, 158, 11, 0.5)';
+                this.ctx.lineWidth = 1;
+                this.ctx.beginPath();
+                this.ctx.roundRect(boxX, boxY, boxW, boxH, 6);
+                this.ctx.fill();
+                this.ctx.stroke();
+
+                this.ctx.fillStyle = '#fde047';
+                this.ctx.font = 'bold 10px Noto Sans KR';
+                this.ctx.textAlign = 'center';
+                this.ctx.fillText(weatherText, boxX + boxW / 2, boxY + 17);
+                this.ctx.restore();
+            }
+
+            drawSoccerPitch() {
+                const stripes = 12;
+                const stripeHeight = this.height / stripes;
+                for (let i = 0; i < stripes; i++) {
+                    this.ctx.fillStyle = (i % 2 === 0) ? '#15803d' : '#166534';
+                    this.ctx.fillRect(0, i * stripeHeight, this.width, stripeHeight);
+                }
+
+                this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+                this.ctx.lineWidth = 3;
+
+                this.ctx.beginPath();
+                this.ctx.arc(this.width / 2, this.height / 2, 70, 0, Math.PI * 2);
+                this.ctx.stroke();
+
+                this.ctx.beginPath();
+                this.ctx.moveTo(0, this.height / 2);
+                this.ctx.lineTo(this.width, this.height / 2);
+                this.ctx.stroke();
+
+                this.ctx.strokeRect(this.width / 2 - 160, 0, 320, 110);
+            }
+
+            drawGoalPost() {
+                const g = this.goalPost;
+
+                this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+                this.ctx.lineWidth = 1;
+                for (let x = g.x; x <= g.x + g.width; x += 10) {
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(x, g.y);
+                    this.ctx.lineTo(x, g.y + g.height);
+                    this.ctx.stroke();
+                }
+                for (let y = g.y; y <= g.y + g.height; y += 8) {
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(g.x, y);
+                    this.ctx.lineTo(g.x + g.width, y);
+                    this.ctx.stroke();
+                }
+
+                this.ctx.strokeStyle = '#ffffff';
+                this.ctx.lineWidth = 6;
+                this.ctx.strokeRect(g.x, g.y, g.width, g.height);
+            }
+
+            drawObstacles() {
+                const gk = this.goalkeeper;
+                this.ctx.fillStyle = '#f59e0b';
+                this.ctx.fillRect(gk.x, gk.y, gk.width, gk.height);
+                this.ctx.fillStyle = '#000';
+                this.ctx.font = '10px Orbitron';
+                this.ctx.textAlign = 'center';
+                this.ctx.fillText("GK", gk.x + gk.width / 2, gk.y + 14);
+
+                this.referees.forEach(ref => {
+                    this.ctx.fillStyle = ref.color;
+                    this.ctx.beginPath();
+                    this.ctx.roundRect(ref.x, ref.y, ref.width, ref.height, 4);
+                    this.ctx.fill();
+                    this.ctx.fillStyle = '#000000';
+                    this.ctx.font = 'bold 9px Noto Sans KR';
+                    this.ctx.textAlign = 'center';
+                    this.ctx.fillText("심판", ref.x + ref.width / 2, ref.y + 20);
+                });
+            }
+
+            drawDefenders() {
+                this.bricks.forEach(br => {
+                    this.ctx.save();
+                    this.ctx.translate(br.x, br.y);
+
+                    this.ctx.fillStyle = '#fca5a5';
+                    this.ctx.fillRect(br.width / 2 - 8, br.height - 8, 4, 8);
+                    this.ctx.fillRect(br.width / 2 + 4, br.height - 8, 4, 8);
+
+                    this.ctx.fillStyle = br.shorts;
+                    this.ctx.fillRect(br.width / 2 - 12, br.height - 15, 24, 8);
+
+                    this.ctx.fillStyle = br.jersey;
+                    this.ctx.beginPath();
+                    this.ctx.roundRect(br.width / 2 - 15, 10, 30, 18, 4);
+                    this.ctx.fill();
+
+                    this.ctx.fillStyle = '#ffffff';
+                    this.ctx.font = 'bold 10px Orbitron';
+                    this.ctx.textAlign = 'center';
+                    this.ctx.fillText(br.number || '7', br.width / 2, 23);
+
+                    this.ctx.fillStyle = '#fca5a5';
+                    this.ctx.beginPath();
+                    this.ctx.arc(br.width / 2, 6, 6, 0, Math.PI * 2);
+                    this.ctx.fill();
+
+                    this.ctx.restore();
+                });
+            }
+
+            drawSoccerBall(b) {
+                this.ctx.save();
+
+                if (this.windForce !== 0 && !b.attached) {
+                    this.ctx.fillStyle = this.windForce > 0 ? 'rgba(250, 204, 21, 0.4)' : 'rgba(56, 189, 248, 0.4)';
+                    for (let t = 1; t <= 3; t++) {
+                        this.ctx.beginPath();
+                        this.ctx.arc(b.x - (b.vx * t * 0.8), b.y - (b.vy * t * 0.8), b.radius * (1 - t * 0.2), 0, Math.PI * 2);
+                        this.ctx.fill();
+                    }
+                }
+
+                this.ctx.translate(b.x, b.y);
+
+                if (this.fireballTimer > 0) {
+                    this.ctx.fillStyle = '#f97316';
+                    this.ctx.shadowBlur = 15;
+                    this.ctx.shadowColor = '#ef4444';
+                } else {
+                    this.ctx.fillStyle = '#ffffff';
+                }
+
+                this.ctx.beginPath();
+                this.ctx.arc(0, 0, b.radius, 0, Math.PI * 2);
+                this.ctx.fill();
+                this.ctx.shadowBlur = 0;
+
+                this.ctx.fillStyle = '#000000';
+                for (let i = 0; i < 5; i++) {
+                    const angle = (i * Math.PI * 2) / 5;
+                    const px = Math.cos(angle) * (b.radius * 0.5);
+                    const py = Math.sin(angle) * (b.radius * 0.5);
+                    this.ctx.beginPath();
+                    this.ctx.arc(px, py, 2, 0, Math.PI * 2);
+                    this.ctx.fill();
+                }
+
+                this.ctx.restore();
+            }
+
+            drawPowerups() {
+                this.powerups.forEach(p => {
+                    this.ctx.fillStyle = p.color;
+                    this.ctx.beginPath();
+                    this.ctx.arc(p.x, p.y, 13, 0, Math.PI * 2);
+                    this.ctx.fill();
+
+                    this.ctx.fillStyle = '#ffffff';
+                    this.ctx.font = 'bold 9px Noto Sans KR';
+                    this.ctx.textAlign = 'center';
+                    this.ctx.fillText(p.label, p.x, p.y + 3);
+                });
+            }
+        }
+
+        window.onload = () => {
+            const game = new BrickBreaker();
+            function loop() {
+                game.update();
+                game.draw();
+                requestAnimationFrame(loop);
+            }
+            loop();
+        };
+    </script>
+</body>
+</html>
