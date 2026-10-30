@@ -1,0 +1,1521 @@
+<!DOCTYPE html>
+<html lang="ko" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>선택 장애 해결사 Ultimate - Decision Helper</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#eef2ff',
+                            100: '#e0e7ff',
+                            500: '#6366f1',
+                            600: '#4f46e5',
+                            700: '#4338ca',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Canvas Confetti CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts (Noto Sans KR) -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        /* Modern Glassmorphism */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+        }
+        .dark .glass-panel {
+            background: rgba(30, 41, 59, 0.85);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .glass-card {
+            background: rgba(255, 255, 255, 0.95);
+            border: 1px solid rgba(229, 231, 235, 0.8);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
+            transition: all 0.3s ease;
+        }
+        .dark .glass-card {
+            background: rgba(30, 41, 59, 0.9);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Custom Wheel styling */
+        #wheelCanvas {
+            filter: drop-shadow(0px 10px 20px rgba(0,0,0,0.15));
+        }
+
+        /* Direct Edit Inline Input */
+        .chip-edit-input {
+            background: transparent;
+            border-bottom: 2px solid #6366f1;
+            outline: none;
+            font-weight: bold;
+            width: 80px;
+        }
+
+        /* 3D Magic Ball */
+        .crystal-ball {
+            background: radial-gradient(circle at 30% 30%, #a855f7, #6366f1 45%, #0f172a 90%);
+            box-shadow: 0 0 35px rgba(168, 85, 247, 0.4), inset -10px -10px 25px rgba(0,0,0,0.6), inset 10px 10px 20px rgba(255,255,255,0.4);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .shake-anim {
+            animation: shake 0.6s cubic-bezier(.36,.07,.19,.97) both;
+        }
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-3px, 0, 0) rotate(-3deg); }
+            20%, 80% { transform: translate3d(5px, 0, 0) rotate(5deg); }
+            30%, 50%, 70% { transform: translate3d(-9px, 0, 0) rotate(-7deg); }
+            40%, 60% { transform: translate3d(9px, 0, 0) rotate(7deg); }
+        }
+
+        /* 3D Flip Card Effect */
+        .flip-card {
+            perspective: 1000px;
+            cursor: pointer;
+        }
+        .flip-card-inner {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+            transform-style: preserve-3d;
+        }
+        .flip-card.flipped .flip-card-inner {
+            transform: rotateY(180deg);
+        }
+        .flip-card-front, .flip-card-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            -webkit-backface-visibility: hidden;
+            backface-visibility: hidden;
+            border-radius: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.75rem;
+            text-align: center;
+        }
+        .flip-card-back {
+            transform: rotateY(180deg);
+        }
+
+        /* Tab Active Button */
+        .tab-btn.active {
+            background-color: #4f46e5;
+            color: white;
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.35);
+        }
+
+        /* Coin Flip Animation */
+        .coin-flip {
+            animation: coinSpin 1.2s ease-out forwards;
+        }
+        @keyframes coinSpin {
+            0% { transform: rotateY(0deg) scale(1); }
+            50% { transform: rotateY(900deg) scale(1.3); }
+            100% { transform: rotateY(1800deg) scale(1); }
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(156, 163, 175, 0.4); border-radius: 10px; }
+    </style>
+</head>
+<body class="bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 flex flex-col min-h-screen">
+
+    <!-- Navbar -->
+    <header class="w-full glass-panel sticky top-0 z-50 py-3.5 px-4 sm:px-8">
+        <div class="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
+            <!-- App Title & Dark Mode Toggle -->
+            <div class="flex items-center justify-between w-full md:w-auto">
+                <div class="flex items-center gap-3 cursor-pointer" onclick="switchTab('wheel')">
+                    <div class="bg-indigo-600 text-white p-2.5 rounded-2xl shadow-lg shadow-indigo-200 dark:shadow-none">
+                        <i class="fa-solid fa-compass-drafting text-xl"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-lg font-black tracking-tight flex items-center gap-2">
+                            선택 장애 해결사 <span class="bg-indigo-100 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 text-[10px] px-2 py-0.5 rounded-full font-extrabold">ULTIMATE</span>
+                        </h1>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">결정이 힘든 순간, 명쾌하고 즐거운 해답!</p>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-2 md:hidden">
+                    <button onclick="toggleDarkMode()" class="p-2.5 rounded-xl bg-slate-200/70 dark:bg-slate-800 text-slate-700 dark:text-amber-400">
+                        <i class="fa-solid fa-moon dark:hidden"></i>
+                        <i class="fa-solid fa-sun hidden dark:block"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Navigation Tabs -->
+            <div class="flex bg-slate-200/60 dark:bg-slate-800/80 p-1 rounded-2xl text-xs font-bold text-slate-600 dark:text-slate-300 w-full md:w-auto overflow-x-auto gap-1">
+                <button onclick="switchTab('input')" id="tab-input" class="tab-btn active px-3.5 py-2 rounded-xl transition-all flex items-center gap-1.5 whitespace-nowrap">
+                    <i class="fa-solid fa-pen-to-square"></i> 항목 입력 & 관리
+                </button>
+                <button onclick="switchTab('wheel')" id="tab-wheel" class="tab-btn px-3.5 py-2 rounded-xl transition-all flex items-center gap-1.5 whitespace-nowrap">
+                    <i class="fa-solid fa-arrows-spin"></i> 돌림판
+                </button>
+                <button onclick="switchTab('tournament')" id="tab-tournament" class="tab-btn px-3.5 py-2 rounded-xl transition-all flex items-center gap-1.5 whitespace-nowrap">
+                    <i class="fa-solid fa-trophy"></i> 이상형 월드컵
+                </button>
+                <button onclick="switchTab('ladder')" id="tab-ladder" class="tab-btn px-3.5 py-2 rounded-xl transition-all flex items-center gap-1.5 whitespace-nowrap">
+                    <i class="fa-solid fa-align-justify"></i> 사다리타기
+                </button>
+                <button onclick="switchTab('card')" id="tab-card" class="tab-btn px-3.5 py-2 rounded-xl transition-all flex items-center gap-1.5 whitespace-nowrap">
+                    <i class="fa-solid fa-clone"></i> 카드뽑기
+                </button>
+                <button onclick="switchTab('oracle')" id="tab-oracle" class="tab-btn px-3.5 py-2 rounded-xl transition-all flex items-center gap-1.5 whitespace-nowrap">
+                    <i class="fa-solid fa-crystal-ball"></i> 마법구슬 & 퀵결정
+                </button>
+            </div>
+
+            <!-- Right Controls (Desktop Darkmode + History) -->
+            <div class="hidden md:flex items-center gap-2">
+                <button onclick="openHistoryModal()" class="px-3 py-2 rounded-xl bg-slate-200/70 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-bold hover:bg-slate-300 transition-all flex items-center gap-1.5">
+                    <i class="fa-solid fa-clock-rotate-left"></i> 기록
+                </button>
+                <button onclick="toggleDarkMode()" class="p-2 rounded-xl bg-slate-200/70 dark:bg-slate-800 text-slate-700 dark:text-amber-400 transition-all">
+                    <i class="fa-solid fa-moon dark:hidden"></i>
+                    <i class="fa-solid fa-sun hidden dark:block"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="max-w-6xl mx-auto px-4 w-full flex-grow py-6">
+
+        <!-- MODE 0: CUSTOM INPUT & PRESET HUB -->
+        <section id="section-input" class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <!-- Left Panel: Add Items -->
+            <div class="lg:col-span-7 flex flex-col gap-6">
+                <div class="glass-card p-6 rounded-2xl flex flex-col gap-4">
+                    <div class="flex justify-between items-center">
+                        <h2 class="text-base font-bold flex items-center gap-2">
+                            <i class="fa-solid fa-keyboard text-indigo-500"></i> 내가 직접 선택 항목 치기
+                        </h2>
+                        <span class="text-xs text-indigo-600 dark:text-indigo-400 font-extrabold bg-indigo-50 dark:bg-indigo-950 px-2.5 py-1 rounded-full">
+                            실시간 전 모드 자동 적용
+                        </span>
+                    </div>
+
+                    <!-- Single / Bulk Input Tab -->
+                    <div class="flex gap-2 text-xs font-bold border-b border-slate-200 dark:border-slate-700 pb-2">
+                        <button onclick="toggleInputMode('single')" id="inputModeSingle" class="text-indigo-600 dark:text-indigo-400 border-b-2 border-indigo-600 pb-1">
+                            한 개씩 추가
+                        </button>
+                        <button onclick="toggleInputMode('bulk')" id="inputModeBulk" class="text-slate-400 pb-1 hover:text-slate-600">
+                            여러 개 한 번에 붙여넣기 (쉼표/줄바꿈)
+                        </button>
+                    </div>
+
+                    <!-- Single Input Box -->
+                    <div id="singleInputArea" class="flex gap-2">
+                        <input type="text" id="optionInput" placeholder="예: 짜장면, 짬뽕, 돈까스 (엔터 키로 연속 추가 가능)" 
+                            class="flex-1 px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                            onkeypress="if(event.key === 'Enter') addOption()">
+                        <button onclick="addOption()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-3 rounded-xl font-bold text-sm transition-all shadow-md">
+                            추가
+                        </button>
+                    </div>
+
+                    <!-- Bulk Input Area -->
+                    <div id="bulkInputArea" class="hidden flex-col gap-2">
+                        <textarea id="bulkInputText" rows="3" placeholder="여러 항목을 쉼표(,)나 엔터(줄바꿈)로 입력하세요.&#10;예시:&#10;강남, 홍대, 신촌, 이태원" 
+                            class="w-full p-3 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/50 resize-none"></textarea>
+                        <button onclick="addBulkOptions()" class="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl shadow-md">
+                            목록 한 번에 등록하기
+                        </button>
+                    </div>
+
+                    <!-- Tags Display & Inline Editing -->
+                    <div class="flex justify-between items-center mt-2">
+                        <span class="text-xs font-bold text-slate-500">현재 입력된 항목 목록 (<span id="optionCount">0</span>개)</span>
+                        <div class="flex gap-3">
+                            <button onclick="saveCustomUserList()" class="text-xs font-bold text-indigo-600 hover:underline">
+                                <i class="fa-solid fa-bookmark"></i> 나만의 리스트로 저장
+                            </button>
+                            <button onclick="clearAllOptions()" class="text-xs font-bold text-rose-500 hover:underline">
+                                전체 삭제
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="tagsContainer" class="min-h-[160px] max-h-[300px] overflow-y-auto p-3 bg-slate-100/70 dark:bg-slate-800/50 rounded-xl border border-slate-200/60 dark:border-slate-700/60 flex flex-wrap gap-2 items-start">
+                        <!-- Dynamic Tags inserted -->
+                    </div>
+                </div>
+
+                <!-- Action Launch Buttons -->
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <button onclick="switchTab('wheel')" class="p-3 bg-gradient-to-br from-indigo-500 to-indigo-600 text-white rounded-xl text-xs font-bold shadow-md hover:opacity-95 text-center flex flex-col items-center gap-1">
+                        <i class="fa-solid fa-arrows-spin text-base"></i> 돌림판으로 실행
+                    </button>
+                    <button onclick="switchTab('tournament')" class="p-3 bg-gradient-to-br from-purple-500 to-purple-600 text-white rounded-xl text-xs font-bold shadow-md hover:opacity-95 text-center flex flex-col items-center gap-1">
+                        <i class="fa-solid fa-trophy text-base"></i> 월드컵 진행
+                    </button>
+                    <button onclick="switchTab('ladder')" class="p-3 bg-gradient-to-br from-emerald-500 to-emerald-600 text-white rounded-xl text-xs font-bold shadow-md hover:opacity-95 text-center flex flex-col items-center gap-1">
+                        <i class="fa-solid fa-align-justify text-base"></i> 사다리타기 실행
+                    </button>
+                    <button onclick="switchTab('card')" class="p-3 bg-gradient-to-br from-amber-500 to-amber-600 text-white rounded-xl text-xs font-bold shadow-md hover:opacity-95 text-center flex flex-col items-center gap-1">
+                        <i class="fa-solid fa-clone text-base"></i> 카드 뽑기
+                    </button>
+                </div>
+            </div>
+
+            <!-- Right Panel: Saved Custom Lists & Quick Presets -->
+            <div class="lg:col-span-5 flex flex-col gap-4">
+                <!-- My Saved Lists -->
+                <div class="glass-card p-5 rounded-2xl flex flex-col gap-3">
+                    <h3 class="text-sm font-bold flex items-center gap-2">
+                        <i class="fa-solid fa-star text-amber-500"></i> 내가 저장한 리스트
+                    </h3>
+                    <div id="savedUserLists" class="flex flex-col gap-2 max-h-[160px] overflow-y-auto pr-1">
+                        <!-- Dynamic Saved Lists -->
+                    </div>
+                </div>
+
+                <!-- Quick Presets -->
+                <div class="glass-card p-5 rounded-2xl flex flex-col gap-3">
+                    <h3 class="text-sm font-bold flex items-center gap-2">
+                        <i class="fa-solid fa-wand-magic-sparkles text-indigo-500"></i> 빠른 추천 프리셋
+                    </h3>
+                    <div class="flex flex-col gap-2">
+                        <button onclick="loadPreset('lunch')" class="text-left px-3.5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 text-xs font-bold flex justify-between items-center">
+                            <span>🍱 오늘 점심 뭐 먹지?</span>
+                            <span class="text-[10px] text-slate-400">짜장면, 짬뽕, 제육 등</span>
+                        </button>
+                        <button onclick="loadPreset('cafe')" class="text-left px-3.5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 text-xs font-bold flex justify-between items-center">
+                            <span>☕ 카페 & 음료 메뉴</span>
+                            <span class="text-[10px] text-slate-400">아메리카노, 라떼 등</span>
+                        </button>
+                        <button onclick="loadPreset('punishment')" class="text-left px-3.5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 text-xs font-bold flex justify-between items-center">
+                            <span>🎯 내기 벌칙 / 쏘기</span>
+                            <span class="text-[10px] text-slate-400">커피 쏘기, 심부름 등</span>
+                        </button>
+                        <button onclick="loadPreset('travel')" class="text-left px-3.5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 text-xs font-bold flex justify-between items-center">
+                            <span>✈️ 주말 여행지 정하기</span>
+                            <span class="text-[10px] text-slate-400">제주, 부산, 강릉 등</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- MODE 1: SPINNING WHEEL (WITH WEIGHTS) -->
+        <section id="section-wheel" class="hidden grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <div class="lg:col-span-5 flex flex-col gap-4">
+                <div class="glass-card p-5 rounded-2xl flex flex-col gap-4">
+                    <div class="flex justify-between items-center">
+                        <h2 class="text-base font-bold flex items-center gap-2">
+                            <i class="fa-solid fa-sliders text-indigo-500"></i> 돌림판 항목 확률(가중치)
+                        </h2>
+                        <button onclick="toggleWeightMode()" id="weightToggleBtn" class="text-xs bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 px-2.5 py-1 rounded-lg font-semibold text-slate-600 dark:text-slate-300 transition-all">
+                            가중치 모드 켜기
+                        </button>
+                    </div>
+
+                    <!-- Items Weight Controls -->
+                    <div class="max-h-[280px] overflow-y-auto p-2 bg-slate-100/60 dark:bg-slate-800/50 rounded-xl border border-slate-200/50 dark:border-slate-700/50 flex flex-col gap-2" id="wheelWeightList">
+                        <!-- Dynamic items & weights -->
+                    </div>
+
+                    <button onclick="switchTab('input')" class="text-xs text-indigo-600 dark:text-indigo-400 font-bold hover:underline text-center">
+                        <i class="fa-solid fa-plus"></i> 항목 직접 추가/수정하러 가기
+                    </button>
+                </div>
+
+                <button id="spinBtn" onclick="spinWheel()" class="w-full py-4 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white font-black text-base rounded-2xl shadow-lg transition-all active:scale-98 flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-play"></i> 돌림판 돌리기!
+                </button>
+            </div>
+
+            <!-- Wheel Display -->
+            <div class="lg:col-span-7 glass-card p-6 rounded-2xl min-h-[420px] flex flex-col items-center justify-center relative overflow-hidden">
+                <!-- Pointer (12 o'clock) -->
+                <div class="absolute top-6 z-20 text-rose-500 filter drop-shadow-md transform -translate-x-1/2 left-1/2 pointer-events-none">
+                    <i class="fa-solid fa-location-pin text-4xl rotate-180"></i>
+                </div>
+
+                <!-- Wheel Canvas -->
+                <div class="relative w-full max-w-[350px] aspect-square flex items-center justify-center my-auto">
+                    <canvas id="wheelCanvas" width="350" height="350" class="w-full h-full rounded-full"></canvas>
+                </div>
+
+                <!-- Result Overlay -->
+                <div id="wheelResultOverlay" class="hidden absolute inset-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md z-30 flex flex-col items-center justify-center p-6 text-center animate-fade-in">
+                    <div class="text-indigo-500 text-5xl mb-2 animate-bounce">🎉</div>
+                    <span class="text-xs font-black text-indigo-500 tracking-wider uppercase">돌림판 당첨 결과</span>
+                    <h3 id="wheelResultText" class="text-3xl font-black my-4 break-all px-4">결과 항목</h3>
+                    <div class="flex gap-3">
+                        <button onclick="closeWheelResult()" class="px-4 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold text-sm rounded-xl">
+                            확인
+                        </button>
+                        <button onclick="copyResult('wheelResultText')" class="px-4 py-2.5 bg-indigo-600 text-white font-bold text-sm rounded-xl shadow-md">
+                            결과 복사
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- MODE 2: LADDER GAME -->
+        <section id="section-ladder" class="hidden flex-col gap-6">
+            <div class="glass-card p-6 rounded-2xl">
+                <h2 class="text-base font-bold mb-4 flex items-center gap-2">
+                    <i class="fa-solid fa-align-justify text-indigo-500"></i> 사다리 타기 세팅
+                </h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 mb-2">참가자 명단 (쉼표 구분)</label>
+                        <input type="text" id="ladderPlayers" value="참가자1, 참가자2, 참가자3, 참가자4" 
+                            class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                            onchange="generateLadder()">
+                    </div>
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <label class="block text-xs font-bold text-slate-500">사다리 하단 결과 항목</label>
+                            <button onclick="useCustomOptionsForLadder()" class="text-[11px] text-indigo-600 font-bold hover:underline">
+                                내 입력 항목으로 채우기
+                            </button>
+                        </div>
+                        <input type="text" id="ladderResults" value="당첨, 꽝, 커피, 꽝" 
+                            class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                            onchange="generateLadder()">
+                    </div>
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="generateLadder()" class="flex-1 py-3 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 text-slate-700 dark:text-slate-200 font-bold text-sm rounded-xl transition-all">
+                        사다리 새로 고침
+                    </button>
+                    <button onclick="startAllLadderAnimation()" class="px-5 py-3 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-600 dark:text-slate-300 font-bold text-sm rounded-xl transition-all flex items-center justify-center gap-1.5">
+                        <i class="fa-solid fa-play"></i> 전체 실행
+                    </button>
+                </div>
+            </div>
+
+            <div class="glass-card p-6 rounded-2xl flex flex-col items-center justify-center min-h-[420px] relative overflow-x-auto">
+                <p class="text-xs text-indigo-500 font-bold mb-3"><i class="fa-solid fa-hand-pointer"></i> 아래 플레이어 버튼을 누르면 해당 사람만 타고 내려갑니다!</p>
+                <div id="ladderPlayerButtons" class="flex justify-around w-full max-w-[600px] mb-2 z-10"></div>
+                <canvas id="ladderCanvas" width="600" height="340" class="max-w-full cursor-pointer"></canvas>
+                <div id="ladderResultBox" class="mt-4 text-center font-bold text-indigo-600 dark:text-indigo-400 text-base h-8"></div>
+            </div>
+        </section>
+
+        <!-- MODE 3: FLIP CARD GAME -->
+        <section id="section-card" class="hidden flex-col gap-6">
+            <div class="glass-card p-6 rounded-2xl text-center max-w-xl mx-auto w-full">
+                <h2 class="text-lg font-bold mb-1">내 항목으로 럭키 카드 뽑기</h2>
+                <p class="text-xs text-slate-500 mb-4">원하는 카드를 선택하여 뒤집어보세요!</p>
+                <div class="flex justify-center gap-3">
+                    <button onclick="setupFlipCards()" class="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl shadow-md transition-all">
+                        <i class="fa-solid fa-shuffle mr-1"></i> 카드 다시 섞기
+                    </button>
+                    <button onclick="resetFlipCards()" class="px-5 py-2.5 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 text-slate-700 dark:text-slate-200 text-xs font-bold rounded-xl shadow-md transition-all">
+                        <i class="fa-solid fa-rotate-right mr-1"></i> 초기화
+                    </button>
+                </div>
+            </div>
+
+            <!-- Card Grid -->
+            <div id="cardGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 min-h-[300px]">
+                <!-- Dynamic Flip Cards -->
+            </div>
+        </section>
+
+        <!-- MODE 4: QUICK DECISION & MAGIC BALL -->
+        <section id="section-oracle" class="hidden flex-col gap-8">
+            <!-- Magic 8-Ball -->
+            <div class="glass-card p-8 rounded-2xl min-h-[380px] flex flex-col items-center justify-center text-center max-w-xl mx-auto w-full">
+                <h2 class="text-xl font-bold mb-1">마법의 3D 결정 구슬</h2>
+                <p class="text-xs text-slate-400 mb-6">고민을 생각하며 구슬을 터치하세요.</p>
+
+                <div class="relative mb-6 cursor-pointer" onclick="askOracle()">
+                    <div id="crystalBall" class="crystal-ball w-44 h-44 rounded-full flex items-center justify-center text-white p-6 relative select-none mx-auto">
+                        <div class="absolute top-4 left-7 w-10 h-5 bg-white/20 rounded-full blur-xs transform -rotate-45"></div>
+                        <div id="oracleText" class="text-center font-black text-base text-indigo-100 leading-relaxed">
+                            터치해서<br>해답 얻기
+                        </div>
+                    </div>
+                </div>
+
+                <div id="oracleAdvice" class="text-xs text-purple-600 dark:text-purple-400 font-semibold min-h-[20px]"></div>
+            </div>
+
+            <!-- Quick Games Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <!-- Coin Flip -->
+                <div class="glass-card p-5 rounded-2xl flex flex-col items-center justify-between text-center">
+                    <span class="text-xs font-bold text-slate-400 uppercase">Coin Flip</span>
+                    <div id="coinElement" class="w-20 h-20 rounded-full bg-amber-400 border-4 border-amber-300 flex items-center justify-center text-amber-900 text-xl font-black shadow-md my-3">
+                        앞면
+                    </div>
+                    <button onclick="flipCoin()" class="w-full py-2 bg-amber-500 text-white font-bold text-xs rounded-xl">
+                        동전 던지기
+                    </button>
+                </div>
+
+                <!-- Dice Roller -->
+                <div class="glass-card p-5 rounded-2xl flex flex-col items-center justify-between text-center">
+                    <span class="text-xs font-bold text-slate-400 uppercase">Dice Roller</span>
+                    <div id="diceElement" class="w-20 h-20 rounded-2xl bg-indigo-600 text-white flex items-center justify-center text-3xl font-black shadow-md my-3">
+                        🎲
+                    </div>
+                    <button onclick="rollDice()" class="w-full py-2 bg-indigo-600 text-white font-bold text-xs rounded-xl">
+                        주사위 (1~6)
+                    </button>
+                </div>
+
+                <!-- Rock Paper Scissors -->
+                <div class="glass-card p-5 rounded-2xl flex flex-col items-center justify-between text-center">
+                    <span class="text-xs font-bold text-slate-400 uppercase">RPS Match</span>
+                    <div id="rpsElement" class="w-20 h-20 rounded-2xl bg-rose-500 text-white flex items-center justify-center text-3xl font-black shadow-md my-3">
+                        ✊
+                    </div>
+                    <button onclick="playRPS()" class="w-full py-2 bg-rose-500 text-white font-bold text-xs rounded-xl">
+                        가위바위보
+                    </button>
+                </div>
+
+                <!-- Custom Number Picker -->
+                <div class="glass-card p-5 rounded-2xl flex flex-col items-center justify-between text-center">
+                    <span class="text-xs font-bold text-slate-400 uppercase">Number Picker</span>
+                    <div class="my-auto text-center">
+                        <span id="randomNumberResult" class="text-3xl font-black text-emerald-500">7</span>
+                        <div class="flex gap-1 justify-center items-center text-[10px] text-slate-400 mt-1">
+                            <input type="number" id="numMin" value="1" class="w-10 p-0.5 border rounded dark:bg-slate-800 text-center">
+                            <span>~</span>
+                            <input type="number" id="numMax" value="45" class="w-10 p-0.5 border rounded dark:bg-slate-800 text-center">
+                        </div>
+                    </div>
+                    <button onclick="pickRandomNumber()" class="w-full py-2 bg-emerald-600 text-white font-bold text-xs rounded-xl">
+                        번호 추첨
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- MODE 5: TOURNAMENT WORLD CUP -->
+        <section id="section-tournament" class="hidden flex-col glass-card p-6 rounded-2xl min-h-[460px]">
+            <!-- Tournament Setup -->
+            <div id="tournamentSetup" class="max-w-xl mx-auto w-full flex flex-col gap-6 my-auto py-4">
+                <div class="text-center">
+                    <h2 class="text-xl font-bold mb-1">내 항목 이상형 월드컵</h2>
+                    <p class="text-xs text-slate-400">입력된 커스텀 항목으로 1대1 비교 월드컵을 토너먼트로 진행합니다.</p>
+                </div>
+
+                <div class="flex justify-center gap-3">
+                    <button onclick="setTournamentSize(2)" id="tourn-2" class="px-3.5 py-2 bg-slate-200 dark:bg-slate-800 font-bold text-xs rounded-xl">2강</button>
+                    <button onclick="setTournamentSize(4)" id="tourn-4" class="px-3.5 py-2 bg-indigo-600 text-white font-bold text-xs rounded-xl">4강</button>
+                    <button onclick="setTournamentSize(8)" id="tourn-8" class="px-3.5 py-2 bg-slate-200 dark:bg-slate-800 font-bold text-xs rounded-xl">8강</button>
+                    <button onclick="setTournamentSize(16)" id="tourn-16" class="px-3.5 py-2 bg-slate-200 dark:bg-slate-800 font-bold text-xs rounded-xl">16강</button>
+                </div>
+
+                <div class="bg-slate-100/70 dark:bg-slate-800/50 rounded-2xl p-4">
+                    <span class="text-xs font-bold text-slate-400 mb-2 block">참가 대상 (<span id="tournamentCandidateCount">0</span>개)</span>
+                    <div id="tournamentCandidatePreview" class="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto"></div>
+                </div>
+
+                <button onclick="startTournament()" class="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-sm rounded-xl shadow-lg transition-all">
+                    토너먼트 시작하기
+                </button>
+            </div>
+
+            <!-- Tournament Battle View -->
+            <div id="tournamentBattle" class="hidden flex-col items-center w-full max-w-3xl mx-auto my-auto py-2">
+                <div class="flex justify-between items-center w-full mb-6">
+                    <span id="tournamentRoundTitle" class="text-xs font-black text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950 px-3 py-1 rounded-full">4강전</span>
+                    <span id="tournamentProgress" class="text-xs font-bold text-slate-400">1 / 2 매치</span>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
+                    <button onclick="selectCandidate(0)" class="glass-card hover:border-indigo-500 p-8 flex flex-col items-center justify-center min-h-[180px] rounded-2xl transition-all transform hover:-translate-y-1">
+                        <span class="text-xs font-bold text-indigo-500 mb-2">CHOICE A</span>
+                        <h3 id="optionAText" class="text-2xl font-black break-all text-center">선택지 A</h3>
+                    </button>
+                    <button onclick="selectCandidate(1)" class="glass-card hover:border-purple-500 p-8 flex flex-col items-center justify-center min-h-[180px] rounded-2xl transition-all transform hover:-translate-y-1">
+                        <span class="text-xs font-bold text-purple-500 mb-2">CHOICE B</span>
+                        <h3 id="optionBText" class="text-2xl font-black break-all text-center">선택지 B</h3>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Tournament Winner View -->
+            <div id="tournamentWinner" class="hidden flex-col items-center justify-center text-center max-w-md mx-auto my-auto py-8">
+                <div class="w-20 h-20 bg-amber-100 dark:bg-amber-950 text-amber-500 rounded-full flex items-center justify-center text-4xl mb-4">
+                    <i class="fa-solid fa-crown"></i>
+                </div>
+                <span class="text-xs font-extrabold text-indigo-500 tracking-wider uppercase mb-1">최종 우승</span>
+                <h3 id="winnerTitle" class="text-3xl font-black mb-6 break-all">우승 선택지</h3>
+                <button onclick="initTournamentSetup()" class="px-6 py-3 bg-indigo-600 text-white font-bold rounded-xl shadow-md">
+                    다시 진행
+                </button>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Card Result Modal -->
+    <div id="cardModal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+        <div class="glass-card w-full max-w-sm p-6 rounded-2xl text-center flex flex-col items-center gap-4">
+            <div class="w-16 h-16 bg-amber-100 dark:bg-amber-950 text-amber-500 rounded-full flex items-center justify-center text-3xl animate-bounce">
+                🎉
+            </div>
+            <div>
+                <span class="text-xs font-extrabold text-indigo-500 uppercase tracking-wider">카드 뽑기 당첨</span>
+                <h3 id="cardModalResultText" class="text-2xl font-black mt-1 break-all">결과</h3>
+            </div>
+            <div class="flex gap-2 w-full mt-2">
+                <button onclick="closeCardModal()" class="flex-1 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold text-xs rounded-xl">
+                    확인
+                </button>
+                <button onclick="copyResult('cardModalResultText')" class="flex-1 py-2.5 bg-indigo-600 text-white font-bold text-xs rounded-xl shadow-md">
+                    결과 복사
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- History Modal -->
+    <div id="historyModal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="glass-card w-full max-w-md p-6 rounded-2xl max-h-[80vh] flex flex-col">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="font-bold text-base flex items-center gap-2">
+                    <i class="fa-solid fa-clock-rotate-left text-indigo-500"></i> 결정 히스토리
+                </h3>
+                <button onclick="closeHistoryModal()" class="text-slate-400 hover:text-slate-600">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            <div id="historyList" class="overflow-y-auto flex-1 flex flex-col gap-2 my-2 pr-1">
+                <!-- Dynamic History Items -->
+            </div>
+            <button onclick="clearHistory()" class="mt-4 w-full py-2 bg-slate-100 dark:bg-slate-800 text-xs font-bold text-rose-500 rounded-xl">
+                기록 전체 삭제
+            </button>
+        </div>
+    </div>
+
+    <!-- Web Audio Context for Sound Effects -->
+    <script>
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        function playBeep(freq = 440, type = 'sine', duration = 0.08) {
+            try {
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+                gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + duration);
+            } catch(e) {}
+        }
+
+        // Global State & Presets
+        const PRESETS = {
+            lunch: ['짜장면', '짬뽕', '제육볶음', '김치찌개', '돈까스', '초밥', '햄버거', '마라탕'],
+            cafe: ['아메리카노', '카페라떼', '바닐라라떼', '자몽에이드', '밀크티', '말차라떼'],
+            punishment: ['음료수 쏘기', '다음 미팅 준비', '잔심부름 하기', '딱밤 한 대', '꽝 (통과)'],
+            travel: ['제주도', '부산', '강릉', '여수', '경주', '속초'],
+            cooking: ['계란볶음밥', '라면', '김치볶음밥', '파스타', '떡볶이', '스팸구이'],
+            movie: ['SF / 액션', '로맨틱 코미디', '공포 / 스릴러', '애니메이션', '미스터리']
+        };
+
+        const PALETTE = ['#6366f1', '#ec4899', '#8b5cf6', '#10b981', '#f59e0b', '#3b82f6', '#14b8a6', '#f43f5e'];
+
+        let currentOptions = [...PRESETS.lunch];
+        let optionWeights = [1, 1, 1, 1, 1, 1, 1, 1];
+        let isWeightMode = false;
+        let activeTab = 'input';
+        let isSpinning = false;
+        let wheelCurrentAngle = 0; // Current rotation angle of wheel in radians
+        let tournamentSize = 4;
+        let historyData = JSON.parse(localStorage.getItem('decision_history') || '[]');
+        let userSavedLists = JSON.parse(localStorage.getItem('user_saved_lists') || '{}');
+
+        // Ladder State
+        let ladderData = { players: [], results: [], horizontalBars: [] };
+        let isLadderAnimating = false;
+
+        // Card State
+        let currentShuffledCards = [];
+
+        // On Load
+        window.onload = function() {
+            renderTags();
+            renderSavedUserLists();
+            drawWheel();
+        };
+
+        // Dark Mode Toggle
+        function toggleDarkMode() {
+            document.documentElement.classList.toggle('dark');
+        }
+
+        // Switch Tabs
+        function switchTab(tab) {
+            activeTab = tab;
+            ['input', 'wheel', 'ladder', 'card', 'oracle', 'tournament'].forEach(t => {
+                const sec = document.getElementById(`section-${t}`);
+                if (sec) sec.classList.add('hidden');
+                const btn = document.getElementById(`tab-${t}`);
+                if (btn) btn.classList.remove('active');
+            });
+
+            const targetSec = document.getElementById(`section-${tab}`);
+            if (targetSec) targetSec.classList.remove('hidden');
+            const targetBtn = document.getElementById(`tab-${tab}`);
+            if (targetBtn) targetBtn.classList.add('active');
+
+            if (tab === 'wheel') {
+                renderWheelWeightList();
+                drawWheel();
+            }
+            if (tab === 'ladder') {
+                useCustomOptionsForLadder();
+                generateLadder();
+            }
+            if (tab === 'card') setupFlipCards();
+            if (tab === 'tournament') initTournamentSetup();
+        }
+
+        // Toggle Input Mode (Single vs Bulk)
+        function toggleInputMode(mode) {
+            if (mode === 'single') {
+                document.getElementById('singleInputArea').classList.remove('hidden');
+                document.getElementById('bulkInputArea').classList.add('hidden');
+                document.getElementById('inputModeSingle').className = 'text-indigo-600 dark:text-indigo-400 border-b-2 border-indigo-600 pb-1';
+                document.getElementById('inputModeBulk').className = 'text-slate-400 pb-1 hover:text-slate-600';
+            } else {
+                document.getElementById('singleInputArea').classList.add('hidden');
+                document.getElementById('bulkInputArea').classList.remove('hidden');
+                document.getElementById('inputModeBulk').className = 'text-indigo-600 dark:text-indigo-400 border-b-2 border-indigo-600 pb-1';
+                document.getElementById('inputModeSingle').className = 'text-slate-400 pb-1 hover:text-slate-600';
+            }
+        }
+
+        // Add Single Option
+        function addOption() {
+            const val = document.getElementById('optionInput').value.trim();
+            if (!val) return;
+            if (currentOptions.includes(val)) {
+                alert('이미 입력된 항목입니다.');
+                return;
+            }
+            currentOptions.push(val);
+            optionWeights.push(1);
+            document.getElementById('optionInput').value = '';
+            renderTags();
+            drawWheel();
+        }
+
+        // Add Bulk Options
+        function addBulkOptions() {
+            const rawText = document.getElementById('bulkInputText').value;
+            if (!rawText.trim()) return;
+
+            const items = rawText.split(/[\n,]+/).map(s => s.trim()).filter(Boolean);
+            let addedCount = 0;
+
+            items.forEach(item => {
+                if (!currentOptions.includes(item)) {
+                    currentOptions.push(item);
+                    optionWeights.push(1);
+                    addedCount++;
+                }
+            });
+
+            document.getElementById('bulkInputText').value = '';
+            renderTags();
+            drawWheel();
+            alert(`${addedCount}개 항목이 추가되었습니다.`);
+        }
+
+        // Direct Inline Tag Editing
+        function startEditOption(idx) {
+            const span = document.getElementById(`tag-text-${idx}`);
+            const oldVal = currentOptions[idx];
+            span.innerHTML = `<input type="text" id="edit-input-${idx}" value="${oldVal}" class="chip-edit-input text-xs" onblur="finishEditOption(${idx})" onkeypress="if(event.key==='Enter') finishEditOption(${idx})">`;
+            const input = document.getElementById(`edit-input-${idx}`);
+            input.focus();
+            input.select();
+        }
+
+        function finishEditOption(idx) {
+            const input = document.getElementById(`edit-input-${idx}`);
+            if (!input) return;
+            const newVal = input.value.trim();
+            if (newVal && !currentOptions.includes(newVal)) {
+                currentOptions[idx] = newVal;
+            }
+            renderTags();
+            drawWheel();
+        }
+
+        function removeOption(idx) {
+            currentOptions.splice(idx, 1);
+            optionWeights.splice(idx, 1);
+            renderTags();
+            drawWheel();
+        }
+
+        function clearAllOptions() {
+            currentOptions = [];
+            optionWeights = [];
+            renderTags();
+            drawWheel();
+        }
+
+        // Render Tag Chips
+        function renderTags() {
+            const container = document.getElementById('tagsContainer');
+            if (!container) return;
+            container.innerHTML = '';
+
+            if (currentOptions.length === 0) {
+                container.innerHTML = '<span class="text-xs text-slate-400 my-auto mx-auto py-8">등록된 항목이 없습니다. 항목을 직접 입력해보세요!</span>';
+            } else {
+                currentOptions.forEach((opt, idx) => {
+                    const tag = document.createElement('div');
+                    tag.className = 'flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold shadow-xs transition-all hover:border-indigo-300';
+                    tag.innerHTML = `
+                        <span id="tag-text-${idx}" onclick="startEditOption(${idx})" class="cursor-pointer hover:text-indigo-600" title="클릭하여 직접 수정">${opt}</span>
+                        <button onclick="removeOption(${idx})" class="text-slate-300 hover:text-rose-500 ml-1">
+                            <i class="fa-solid fa-circle-xmark"></i>
+                        </button>
+                    `;
+                    container.appendChild(tag);
+                });
+            }
+
+            const countEl = document.getElementById('optionCount');
+            if (countEl) countEl.innerText = currentOptions.length;
+        }
+
+        // Save & Render User Custom Lists
+        function saveCustomUserList() {
+            if (currentOptions.length === 0) return alert('저장할 항목이 없습니다.');
+            const name = prompt('저장할 리스트 이름을 입력하세요:', '나의 추천 리스트');
+            if (!name) return;
+
+            userSavedLists[name] = [...currentOptions];
+            localStorage.setItem('user_saved_lists', JSON.stringify(userSavedLists));
+            renderSavedUserLists();
+        }
+
+        function renderSavedUserLists() {
+            const container = document.getElementById('savedUserLists');
+            if (!container) return;
+            container.innerHTML = '';
+
+            const keys = Object.keys(userSavedLists);
+            if (keys.length === 0) {
+                container.innerHTML = '<p class="text-xs text-slate-400 py-2">저장된 커스텀 리스트가 없습니다.</p>';
+                return;
+            }
+
+            keys.forEach(key => {
+                const div = document.createElement('div');
+                div.className = 'flex justify-between items-center p-2.5 bg-slate-100 dark:bg-slate-800 rounded-xl text-xs font-bold';
+                div.innerHTML = `
+                    <span class="truncate max-w-[140px] cursor-pointer hover:text-indigo-600" onclick="loadUserSavedList('${key}')">${key} (${userSavedLists[key].length})</span>
+                    <div class="flex gap-2 items-center">
+                        <button onclick="loadUserSavedList('${key}')" class="text-indigo-600 dark:text-indigo-400 text-[11px] hover:underline">불러오기</button>
+                        <button onclick="deleteUserSavedList('${key}')" class="text-slate-400 hover:text-rose-500"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function loadUserSavedList(key) {
+            if (userSavedLists[key]) {
+                currentOptions = [...userSavedLists[key]];
+                optionWeights = currentOptions.map(() => 1);
+                renderTags();
+                drawWheel();
+                alert(`'${key}' 리스트가 불러와졌습니다.`);
+            }
+        }
+
+        function deleteUserSavedList(key) {
+            delete userSavedLists[key];
+            localStorage.setItem('user_saved_lists', JSON.stringify(userSavedLists));
+            renderSavedUserLists();
+        }
+
+        // Presets Loading
+        function loadPreset(key) {
+            if (PRESETS[key]) {
+                currentOptions = [...PRESETS[key]];
+                optionWeights = currentOptions.map(() => 1);
+                renderTags();
+                drawWheel();
+            }
+        }
+
+        // Wheel Weight List Render
+        function renderWheelWeightList() {
+            const container = document.getElementById('wheelWeightList');
+            if (!container) return;
+            container.innerHTML = '';
+
+            currentOptions.forEach((opt, idx) => {
+                const row = document.createElement('div');
+                row.className = 'flex items-center justify-between p-2 bg-white dark:bg-slate-800 rounded-xl text-xs font-medium border border-slate-200 dark:border-slate-700';
+                
+                let weightCtrl = '';
+                if (isWeightMode) {
+                    weightCtrl = `
+                        <div class="flex items-center gap-1">
+                            <span class="text-[10px] text-slate-400">가중치:</span>
+                            <input type="number" value="${optionWeights[idx] || 1}" min="1" max="5" 
+                                onchange="changeWeight(${idx}, this.value)"
+                                class="w-10 px-1 py-0.5 border rounded text-center dark:bg-slate-900">
+                        </div>
+                    `;
+                }
+
+                row.innerHTML = `
+                    <span class="truncate max-w-[140px] font-bold">${opt}</span>
+                    ${weightCtrl}
+                `;
+                container.appendChild(row);
+            });
+        }
+
+        function toggleWeightMode() {
+            isWeightMode = !isWeightMode;
+            document.getElementById('weightToggleBtn').innerText = isWeightMode ? '가중치 모드 끄기' : '가중치 모드 켜기';
+            renderWheelWeightList();
+            drawWheel();
+        }
+
+        function changeWeight(idx, val) {
+            optionWeights[idx] = Math.max(1, Math.min(5, parseInt(val) || 1));
+            drawWheel();
+        }
+
+        // Wheel Draw with absolute rotation support
+        function drawWheel() {
+            const canvas = document.getElementById('wheelCanvas');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            const numOptions = currentOptions.length;
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            const radius = centerX - 10;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            if (numOptions === 0) {
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+                ctx.fillStyle = '#f1f5f9';
+                ctx.fill();
+                return;
+            }
+
+            const totalWeight = optionWeights.reduce((a, b) => a + b, 0);
+
+            ctx.save();
+            ctx.translate(centerX, centerY);
+            ctx.rotate(wheelCurrentAngle);
+            ctx.translate(-centerX, -centerY);
+
+            let angleAcc = 0;
+            for (let i = 0; i < numOptions; i++) {
+                const sliceAngle = (2 * Math.PI) * (optionWeights[i] / totalWeight);
+
+                ctx.beginPath();
+                ctx.moveTo(centerX, centerY);
+                ctx.arc(centerX, centerY, radius, angleAcc, angleAcc + sliceAngle);
+                ctx.fillStyle = PALETTE[i % PALETTE.length];
+                ctx.fill();
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // Label
+                ctx.save();
+                ctx.translate(centerX, centerY);
+                ctx.rotate(angleAcc + sliceAngle / 2);
+                ctx.textAlign = 'right';
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 12px "Noto Sans KR"';
+                let label = currentOptions[i];
+                if (label.length > 7) label = label.substring(0, 6) + '..';
+                ctx.fillText(label, radius - 15, 4);
+                ctx.restore();
+
+                angleAcc += sliceAngle;
+            }
+
+            ctx.restore();
+
+            // Center Pin
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, 20, 0, 2 * Math.PI);
+            ctx.fillStyle = '#ffffff';
+            ctx.fill();
+            ctx.strokeStyle = '#cbd5e1';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+        }
+
+        // Spin Wheel Logic - Smooth Animation & Exact Sector Pointer Detection
+        function spinWheel() {
+            if (isSpinning || currentOptions.length < 2) {
+                if (currentOptions.length < 2) alert('돌림판을 돌리려면 최소 2개 이상의 항목이 필요합니다.');
+                return;
+            }
+            isSpinning = true;
+
+            const totalWeight = optionWeights.reduce((a, b) => a + b, 0);
+            
+            // Random target total angle: at least 5 full rotations + random angle
+            const additionalRotations = (5 + Math.random() * 3) * 2 * Math.PI;
+            const startAngle = wheelCurrentAngle;
+            const targetAngle = startAngle + additionalRotations;
+            const duration = 4000; // 4 seconds spin
+            const startTime = performance.now();
+
+            let lastBeepSegment = -1;
+
+            function animateSpin(now) {
+                const elapsed = now - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                
+                // Cubic Easing Out
+                const easeOut = 1 - Math.pow(1 - progress, 3);
+                wheelCurrentAngle = startAngle + (targetAngle - startAngle) * easeOut;
+
+                drawWheel();
+
+                // Beep sound on passing slice threshold
+                const normalizedAngle = (wheelCurrentAngle) % (2 * Math.PI);
+                const currentSegment = Math.floor((normalizedAngle / (2 * Math.PI)) * totalWeight);
+                if (currentSegment !== lastBeepSegment) {
+                    playBeep(500 + (currentSegment % 5) * 50, 'triangle', 0.04);
+                    lastBeepSegment = currentSegment;
+                }
+
+                if (progress < 1) {
+                    requestAnimationFrame(animateSpin);
+                } else {
+                    isSpinning = false;
+
+                    // Pointer is at TOP (12 o'clock = -PI/2 radians or 3*PI/2)
+                    // The wheel rotates clockwise by angle θ.
+                    // The pointer angle in wheel's rotated space is (-PI/2 - θ) mod 2PI
+                    let pointerAngle = ( -Math.PI / 2 - (wheelCurrentAngle % (2 * Math.PI)) ) % (2 * Math.PI);
+                    if (pointerAngle < 0) pointerAngle += 2 * Math.PI;
+
+                    let accumulatedAngle = 0;
+                    let winnerIndex = 0;
+                    for (let i = 0; i < currentOptions.length; i++) {
+                        const sliceAngle = (2 * Math.PI) * (optionWeights[i] / totalWeight);
+                        if (pointerAngle >= accumulatedAngle && pointerAngle < accumulatedAngle + sliceAngle) {
+                            winnerIndex = i;
+                            break;
+                        }
+                        accumulatedAngle += sliceAngle;
+                    }
+
+                    const winner = currentOptions[winnerIndex];
+                    document.getElementById('wheelResultText').innerText = winner;
+                    document.getElementById('wheelResultOverlay').classList.remove('hidden');
+                    saveHistory('돌림판', winner);
+                    triggerConfetti();
+                }
+            }
+
+            requestAnimationFrame(animateSpin);
+        }
+
+        function closeWheelResult() {
+            document.getElementById('wheelResultOverlay').classList.add('hidden');
+        }
+
+        // --- LADDER GAME SYSTEM ---
+        function useCustomOptionsForLadder() {
+            if (currentOptions.length >= 2) {
+                document.getElementById('ladderResults').value = currentOptions.join(', ');
+                generateLadder();
+            }
+        }
+
+        function generateLadder() {
+            const players = document.getElementById('ladderPlayers').value.split(',').map(s => s.trim()).filter(Boolean);
+            const results = document.getElementById('ladderResults').value.split(',').map(s => s.trim()).filter(Boolean);
+
+            if (players.length < 2 || players.length !== results.length) {
+                document.getElementById('ladderResultBox').innerText = '참가자와 결과의 개수가 동일해야 합니다 (최소 2개)';
+                return;
+            }
+
+            document.getElementById('ladderResultBox').innerText = '원하는 플레이어 버튼을 클릭해보세요!';
+
+            // Generate Random Horizontal Bars
+            const numLevels = 6;
+            const bars = [];
+            for (let i = 0; i < players.length - 1; i++) {
+                for (let level = 1; level <= numLevels; level++) {
+                    if (Math.random() > 0.45) {
+                        const existsOnLeft = bars.some(b => b.col === i - 1 && Math.abs(b.level - level) < 0.5);
+                        if (!existsOnLeft) {
+                            bars.push({ col: i, level });
+                        }
+                    }
+                }
+            }
+
+            ladderData = { players, results, horizontalBars: bars, numLevels };
+            renderLadderBase();
+            renderLadderPlayerButtons();
+        }
+
+        function renderLadderPlayerButtons() {
+            const container = document.getElementById('ladderPlayerButtons');
+            if (!container) return;
+            container.innerHTML = '';
+
+            ladderData.players.forEach((p, idx) => {
+                const btn = document.createElement('button');
+                btn.className = 'px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold text-xs rounded-xl shadow-sm transition-all flex items-center gap-1 cursor-pointer';
+                btn.innerHTML = `<i class="fa-solid fa-user text-[10px]"></i> ${p}`;
+                btn.onclick = () => runSingleLadderAnimation(idx);
+                container.appendChild(btn);
+            });
+        }
+
+        function renderLadderBase() {
+            const canvas = document.getElementById('ladderCanvas');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const { players, results, horizontalBars, numLevels } = ladderData;
+            if (!players || players.length < 2) return;
+
+            const colWidth = canvas.width / players.length;
+            const topY = 20;
+            const bottomY = canvas.height - 30;
+            const levelHeight = (bottomY - topY) / (numLevels + 1);
+
+            // Draw Vertical Lines
+            ctx.lineWidth = 4;
+            ctx.strokeStyle = '#94a3b8';
+            ctx.lineCap = 'round';
+
+            for (let i = 0; i < players.length; i++) {
+                const x = colWidth * i + colWidth / 2;
+                ctx.beginPath();
+                ctx.moveTo(x, topY);
+                ctx.lineTo(x, bottomY);
+                ctx.stroke();
+
+                // Bottom Result Labels
+                ctx.fillStyle = '#64748b';
+                ctx.font = 'bold 13px "Noto Sans KR"';
+                ctx.textAlign = 'center';
+                ctx.fillText(results[i], x, bottomY + 22);
+            }
+
+            // Draw Horizontal Bars
+            ctx.strokeStyle = '#94a3b8';
+            ctx.lineWidth = 3;
+            horizontalBars.forEach(bar => {
+                const x1 = colWidth * bar.col + colWidth / 2;
+                const x2 = colWidth * (bar.col + 1) + colWidth / 2;
+                const y = topY + bar.level * levelHeight;
+
+                ctx.beginPath();
+                ctx.moveTo(x1, y);
+                ctx.lineTo(x2, y);
+                ctx.stroke();
+            });
+        }
+
+        function computeLadderPath(playerIndex) {
+            const { players, horizontalBars, numLevels } = ladderData;
+            const canvas = document.getElementById('ladderCanvas');
+            const colWidth = canvas.width / players.length;
+            const topY = 20;
+            const bottomY = canvas.height - 30;
+            const levelHeight = (bottomY - topY) / (numLevels + 1);
+
+            let currCol = playerIndex;
+            let path = [{ x: colWidth * currCol + colWidth / 2, y: topY }];
+
+            for (let lvl = 1; lvl <= numLevels; lvl++) {
+                const y = topY + lvl * levelHeight;
+                path.push({ x: colWidth * currCol + colWidth / 2, y });
+
+                const barRight = horizontalBars.find(b => b.col === currCol && b.level === lvl);
+                const barLeft = horizontalBars.find(b => b.col === currCol - 1 && b.level === lvl);
+
+                if (barRight) {
+                    currCol += 1;
+                    path.push({ x: colWidth * currCol + colWidth / 2, y });
+                } else if (barLeft) {
+                    currCol -= 1;
+                    path.push({ x: colWidth * currCol + colWidth / 2, y });
+                }
+            }
+
+            path.push({ x: colWidth * currCol + colWidth / 2, y: bottomY });
+            return { path, finalCol: currCol };
+        }
+
+        function runSingleLadderAnimation(playerIndex) {
+            if (isLadderAnimating) return;
+            isLadderAnimating = true;
+
+            renderLadderBase();
+            const { path, finalCol } = computeLadderPath(playerIndex);
+            const canvas = document.getElementById('ladderCanvas');
+            const ctx = canvas.getContext('2d');
+            const color = PALETTE[playerIndex % PALETTE.length];
+
+            let pathSegment = 0;
+            let segmentProgress = 0;
+            const speed = 0.1;
+
+            function animate() {
+                if (pathSegment >= path.length - 1) {
+                    isLadderAnimating = false;
+                    const resultText = `${ladderData.players[playerIndex]} ➔ ${ladderData.results[finalCol]}`;
+                    document.getElementById('ladderResultBox').innerText = `🎉 ${resultText}`;
+                    saveHistory('사다리 타기', resultText);
+                    triggerConfetti();
+                    return;
+                }
+
+                const p1 = path[pathSegment];
+                const p2 = path[pathSegment + 1];
+
+                segmentProgress += speed;
+                if (segmentProgress >= 1) {
+                    segmentProgress = 0;
+                    pathSegment++;
+                }
+
+                renderLadderBase();
+
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 6;
+                ctx.lineCap = 'round';
+                ctx.beginPath();
+                ctx.moveTo(path[0].x, path[0].y);
+
+                for (let i = 0; i < pathSegment; i++) {
+                    ctx.lineTo(path[i + 1].x, path[i + 1].y);
+                }
+
+                if (pathSegment < path.length - 1) {
+                    const currentX = p1.x + (p2.x - p1.x) * Math.min(segmentProgress, 1);
+                    const currentY = p1.y + (p2.y - p1.y) * Math.min(segmentProgress, 1);
+                    ctx.lineTo(currentX, currentY);
+                }
+
+                ctx.stroke();
+
+                playBeep(450, 'sine', 0.02);
+                requestAnimationFrame(animate);
+            }
+
+            requestAnimationFrame(animate);
+        }
+
+        function startAllLadderAnimation() {
+            if (isLadderAnimating || !ladderData.players || ladderData.players.length === 0) return;
+            let pIdx = 0;
+
+            function runNext() {
+                if (pIdx < ladderData.players.length) {
+                    runSingleLadderAnimation(pIdx);
+                    pIdx++;
+                    setTimeout(runNext, 2200);
+                }
+            }
+            runNext();
+        }
+
+        // --- FLIP CARD GAME SYSTEM ---
+        function setupFlipCards() {
+            const grid = document.getElementById('cardGrid');
+            if (!grid) return;
+            grid.innerHTML = '';
+
+            let items = [...currentOptions];
+            if (items.length === 0) {
+                items = ['행운', '당첨', '꽝', '선물'];
+            }
+            
+            // Shuffle items
+            currentShuffledCards = [...items].sort(() => Math.random() - 0.5);
+
+            renderCardGrid();
+        }
+
+        function resetFlipCards() {
+            const grid = document.getElementById('cardGrid');
+            if (!grid) return;
+            
+            // Keep same order but unflip all
+            const cards = grid.querySelectorAll('.flip-card');
+            cards.forEach(c => c.classList.remove('flipped'));
+        }
+
+        function renderCardGrid() {
+            const grid = document.getElementById('cardGrid');
+            if (!grid) return;
+            grid.innerHTML = '';
+
+            currentShuffledCards.forEach((item, idx) => {
+                const card = document.createElement('div');
+                card.className = 'flip-card h-40 w-full';
+                card.onclick = function() {
+                    if (this.classList.contains('flipped')) return;
+                    this.classList.add('flipped');
+                    playBeep(600, 'sine', 0.1);
+                    saveHistory('카드 뽑기', item);
+                    triggerConfetti();
+                    
+                    // Show Winner Modal
+                    setTimeout(() => {
+                        document.getElementById('cardModalResultText').innerText = item;
+                        document.getElementById('cardModal').classList.remove('hidden');
+                    }, 400);
+                };
+
+                card.innerHTML = `
+                    <div class="flip-card-inner">
+                        <div class="flip-card-front bg-gradient-to-br from-indigo-500 to-purple-600 text-white shadow-lg flex-col gap-2">
+                            <i class="fa-solid fa-question text-2xl animate-pulse"></i>
+                            <span class="text-xs font-bold">CARD ${idx + 1}</span>
+                        </div>
+                        <div class="flip-card-back bg-white dark:bg-slate-800 border-2 border-indigo-500 text-slate-800 dark:text-slate-100 shadow-xl flex-col justify-center">
+                            <span class="text-[10px] text-indigo-500 font-extrabold uppercase mb-1">당첨 결과</span>
+                            <p class="font-black text-sm break-all">${item}</p>
+                        </div>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        function closeCardModal() {
+            document.getElementById('cardModal').classList.add('hidden');
+        }
+
+        // Quick Decision Tools
+        function flipCoin() {
+            const el = document.getElementById('coinElement');
+            el.classList.add('coin-flip');
+            playBeep(800, 'sine', 0.1);
+            setTimeout(() => {
+                const res = Math.random() > 0.5 ? '앞면' : '뒷면';
+                el.innerText = res;
+                el.classList.remove('coin-flip');
+                saveHistory('동전 던지기', res);
+            }, 1200);
+        }
+
+        function rollDice() {
+            const el = document.getElementById('diceElement');
+            const res = Math.floor(Math.random() * 6) + 1;
+            el.innerText = res;
+            playBeep(500, 'square', 0.1);
+            saveHistory('주사위', `${res}번`);
+        }
+
+        function playRPS() {
+            const rps = ['✊ (바위)', '✌️ (가위)', '🖐️ (보)'];
+            const res = rps[Math.floor(Math.random() * rps.length)];
+            document.getElementById('rpsElement').innerText = res.split(' ')[0];
+            saveHistory('가위바위보', res);
+        }
+
+        function pickRandomNumber() {
+            const min = parseInt(document.getElementById('numMin').value) || 1;
+            const max = parseInt(document.getElementById('numMax').value) || 45;
+            const res = Math.floor(Math.random() * (max - min + 1)) + min;
+            document.getElementById('randomNumberResult').innerText = res;
+            saveHistory('번호 추첨', `${res}`);
+        }
+
+        // Magic 8-Ball
+        const ORACLE_DATA = [
+            { text: "무조건 GO!", advice: "망설이지 말고 바로 추진하세요." },
+            { text: "절대 안 됨!", advice: "지금은 때가 아닙니다. 다음 기회에." },
+            { text: "글쎄요...", advice: "차분하게 한 번 더 고민해보세요." },
+            { text: "대성공 예감!", advice: "결과가 매우 긍정적일 것입니다." }
+        ];
+
+        function askOracle() {
+            const ball = document.getElementById('crystalBall');
+            ball.classList.add('shake-anim');
+            playBeep(300, 'sawtooth', 0.3);
+
+            setTimeout(() => {
+                ball.classList.remove('shake-anim');
+                const res = ORACLE_DATA[Math.floor(Math.random() * ORACLE_DATA.length)];
+                document.getElementById('oracleText').innerHTML = res.text;
+                document.getElementById('oracleAdvice').innerText = res.advice;
+                saveHistory('마법 구슬', res.text);
+                triggerConfetti();
+            }, 600);
+        }
+
+        // Tournament Logic
+        function setTournamentSize(size) {
+            tournamentSize = size;
+            [4, 8, 16].forEach(s => {
+                const btn = document.getElementById(`tourn-${s}`);
+                if (s === size) btn.className = 'px-4 py-2 bg-indigo-600 text-white font-bold text-xs rounded-xl';
+                else btn.className = 'px-4 py-2 bg-slate-200 dark:bg-slate-800 font-bold text-xs rounded-xl';
+            });
+        }
+
+        function initTournamentSetup() {
+            document.getElementById('tournamentSetup').classList.remove('hidden');
+            document.getElementById('tournamentBattle').classList.add('hidden');
+            document.getElementById('tournamentWinner').classList.add('hidden');
+            document.getElementById('tournamentCandidateCount').innerText = currentOptions.length;
+
+            const preview = document.getElementById('tournamentCandidatePreview');
+            preview.innerHTML = '';
+            currentOptions.forEach(opt => {
+                const badge = document.createElement('span');
+                badge.className = 'px-2 py-1 bg-white dark:bg-slate-700 text-xs rounded-md border';
+                badge.innerText = opt;
+                preview.appendChild(badge);
+            });
+        }
+
+        let tournList = [], tournMatchIdx = 0, tournNextRound = [];
+        function startTournament() {
+            if (currentOptions.length < 2) return alert('최소 2개 이상의 항목이 필요합니다.');
+            tournList = [...currentOptions].sort(() => Math.random() - 0.5).slice(0, tournamentSize);
+            tournMatchIdx = 0;
+            tournNextRound = [];
+
+            document.getElementById('tournamentSetup').classList.add('hidden');
+            document.getElementById('tournamentBattle').classList.remove('hidden');
+            document.getElementById('tournamentBattle').classList.add('flex');
+            renderTournMatch();
+        }
+
+        function renderTournMatch() {
+            if (tournMatchIdx >= tournList.length) {
+                if (tournNextRound.length === 1) {
+                    document.getElementById('tournamentBattle').classList.add('hidden');
+                    document.getElementById('tournamentWinner').classList.remove('hidden');
+                    document.getElementById('tournamentWinner').classList.add('flex');
+                    document.getElementById('winnerTitle').innerText = tournNextRound[0];
+                    saveHistory('이상형 월드컵', tournNextRound[0]);
+                    triggerConfetti();
+                    return;
+                }
+                tournList = [...tournNextRound];
+                tournNextRound = [];
+                tournMatchIdx = 0;
+            }
+
+            document.getElementById('tournamentRoundTitle').innerText = `${tournList.length}강전`;
+            document.getElementById('tournamentProgress').innerText = `${(tournMatchIdx / 2) + 1} / ${tournList.length / 2} 매치`;
+            document.getElementById('optionAText').innerText = tournList[tournMatchIdx];
+            document.getElementById('optionBText').innerText = tournList[tournMatchIdx + 1];
+        }
+
+        function selectCandidate(offset) {
+            tournNextRound.push(tournList[tournMatchIdx + offset]);
+            tournMatchIdx += 2;
+            renderTournMatch();
+        }
+
+        // History Management
+        function saveHistory(mode, result) {
+            const item = { mode, result, time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) };
+            historyData.unshift(item);
+            if (historyData.length > 20) historyData.pop();
+            localStorage.setItem('decision_history', JSON.stringify(historyData));
+        }
+
+        function openHistoryModal() {
+            const list = document.getElementById('historyList');
+            list.innerHTML = '';
+            if (historyData.length === 0) {
+                list.innerHTML = '<p class="text-xs text-center text-slate-400 py-4">기록된 결과가 없습니다.</p>';
+            } else {
+                historyData.forEach(h => {
+                    const div = document.createElement('div');
+                    div.className = 'p-3 bg-slate-100 dark:bg-slate-800 rounded-xl text-xs flex justify-between items-center';
+                    div.innerHTML = `
+                        <div>
+                            <span class="font-bold text-indigo-500 mr-2">[${h.mode}]</span>
+                            <span class="font-black">${h.result}</span>
+                        </div>
+                        <span class="text-[10px] text-slate-400">${h.time}</span>
+                    `;
+                    list.appendChild(div);
+                });
+            }
+            document.getElementById('historyModal').classList.remove('hidden');
+        }
+
+        function closeHistoryModal() {
+            document.getElementById('historyModal').classList.add('hidden');
+        }
+
+        function clearHistory() {
+            historyData = [];
+            localStorage.removeItem('decision_history');
+            openHistoryModal();
+        }
+
+        function copyResult(elementId) {
+            const text = document.getElementById(elementId).innerText;
+            navigator.clipboard.writeText(`[선택 장애 해결사] 오늘의 결정: ${text}`);
+            alert('결과가 클립보드에 복사되었습니다!');
+        }
+
+        function triggerConfetti() {
+            if (typeof confetti === 'function') {
+                confetti({ particleCount: 70, spread: 60, origin: { y: 0.6 } });
+            }
+        }
+    </script>
+</body>
+</html>
